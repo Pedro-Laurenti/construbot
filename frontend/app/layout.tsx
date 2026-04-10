@@ -1,0 +1,19 @@
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "ConstruBot",
+  description: "WhatsApp-like messaging application",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="pt-BR" data-theme="whatsapp">
+      <body className="h-screen overflow-hidden bg-base-100">{children}</body>
+    </html>
+  );
+}
