@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { RiCloseLine } from "react-icons/ri";
+import { MdClose } from "react-icons/md";
 
 export interface HelpContent {
   title: string;
@@ -40,7 +40,7 @@ export default function HelpModal({ content, onClose }: HelpModalProps) {
           <div className="flex items-center justify-between px-5 py-4 border-b border-secondary">
             <h3 className="card-title text-base">{content.title}</h3>
             <button onClick={onClose} className="btn btn-ghost btn-sm btn-circle">
-              <RiCloseLine size={20} />
+              <MdClose size={20} />
             </button>
           </div>
 

@@ -6,6 +6,7 @@ import ChatWindow from "@/components/ChatWindow";
 import EngineerWindow from "@/components/EngineerWindow";
 import LoginPage from "@/components/LoginPage";
 import { loadSession, saveSession, clearSession } from "@/lib/session";
+import { fetchWithAuth } from "@/lib/api";
 import type { AppSession, ConversationId, ConversationState, HealthResponse } from "@/types";
 
 export default function Home() {
@@ -18,7 +19,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/health")
+    fetchWithAuth("/api/health")
       .then((res) => {
         if (!res.ok) throw new Error();
         return res.json() as Promise<HealthResponse>;
@@ -66,7 +67,6 @@ export default function Home() {
 
   return (
     <div className="flex h-screen overflow-hidden relative">
-      {/* API status badge */}
       <div className="fixed top-3 right-3 z-50">
         <div className={`p-1.5 rounded-full ${
           apiStatus === "ok" ? "badge-success" :

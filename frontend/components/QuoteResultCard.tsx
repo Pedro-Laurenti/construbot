@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  RiBuilding4Line,
-  RiTimeLine,
-  RiToolsLine,
-  RiMoneyDollarCircleLine,
-  RiUserVoiceLine,
-  RiArrowRightSLine,
-} from "react-icons/ri";
+  MdApartment,
+  MdSchedule,
+  MdHandyman,
+  MdAttachMoney,
+  MdRecordVoiceOver,
+  MdChevronRight,
+} from "react-icons/md";
 import type { QuoteResult, QuoteInputs } from "@/lib/botScripts";
 import { formatCurrency } from "@/lib/botScripts";
 
@@ -40,10 +40,10 @@ interface BarProps {
   label: string;
   value: number;
   total: number;
-  color: string;
+  className?: string;
 }
 
-function CostBar({ label, value, total, color }: BarProps) {
+function CostBar({ label, value, total, className = "progress-primary" }: BarProps) {
   const pct = Math.round((value / total) * 100);
   return (
     <div className="flex flex-col gap-1">
@@ -53,12 +53,7 @@ function CostBar({ label, value, total, color }: BarProps) {
           {formatCurrency(value)} ({pct}%)
         </span>
       </div>
-      <progress
-        className="progress h-1.5 w-full"
-        value={pct}
-        max={100}
-        style={{ "--tw-progress-color": color } as React.CSSProperties}
-      />
+      <progress className={`progress h-1.5 w-full ${className}`} value={pct} max={100} />
     </div>
   );
 }
@@ -76,7 +71,7 @@ export default function QuoteResultCard({
       <div className="card bg-primary/10 border border-primary/30">
         <div className="card-body px-4 py-5 gap-1">
           <div className="flex items-center gap-2">
-            <RiBuilding4Line size={16} className="text-primary" />
+            <MdApartment size={16} className="text-primary" />
             <span className="text-primary text-xs font-semibold uppercase tracking-wide">Estimativa de Orçamento</span>
           </div>
           <p className="text-base-content/50 text-xs">
@@ -92,7 +87,6 @@ export default function QuoteResultCard({
         </div>
       </div>
 
-      {/* Stats */}
       <div className="card bg-base-300">
         <div className="card-body px-4 py-1">
           <StatRow label="Prazo estimado" value={result.prazoEstimado} color="text-accent" />
@@ -102,34 +96,32 @@ export default function QuoteResultCard({
         </div>
       </div>
 
-      {/* Cost breakdown */}
       <div className="card bg-base-300">
         <div className="card-body px-4 py-4 gap-3">
           <div className="flex items-center gap-2">
-            <RiMoneyDollarCircleLine size={15} className="text-base-content/40" />
+            <MdAttachMoney size={15} className="text-base-content/40" />
             <span className="text-base-content/40 text-xs font-semibold uppercase tracking-wide">Distribuição de Custos</span>
           </div>
-          <CostBar label="Materiais de construção" value={result.materiais} total={avgTotal} color="#00a884" />
-          <CostBar label="Mão de obra" value={result.maoDeObra} total={avgTotal} color="#53bdeb" />
-          <CostBar label="Indiretos e administração" value={result.indiretosAdmin} total={avgTotal} color="#f59e0b" />
+          <CostBar label="Materiais de construção" value={result.materiais} total={avgTotal} className="progress-success" />
+          <CostBar label="Mão de obra" value={result.maoDeObra} total={avgTotal} className="progress-info" />
+          <CostBar label="Indiretos e administração" value={result.indiretosAdmin} total={avgTotal} className="progress-warning" />
         </div>
       </div>
 
-      {/* Timeline estimate */}
       <div className="card bg-base-300">
         <div className="card-body px-4 py-4 gap-2">
           <div className="flex items-center gap-2 mb-1">
-            <RiTimeLine size={15} className="text-base-content/40" />
+            <MdSchedule size={15} className="text-base-content/40" />
             <span className="text-base-content/40 text-xs font-semibold uppercase tracking-wide">Cronograma Estimado</span>
           </div>
           {[
-            { phase: "Fundação e estrutura", pct: 25, color: "#f59e0b" },
-            { phase: "Alvenaria e coberta", pct: 30, color: "#53bdeb" },
-            { phase: "Instalações e revestimento", pct: 30, color: "#00a884" },
-            { phase: "Acabamentos e pintura", pct: 15, color: "#a78bfa" },
+            { phase: "Fundação e estrutura", pct: 25, dotClass: "bg-warning" },
+            { phase: "Alvenaria e coberta", pct: 30, dotClass: "bg-info" },
+            { phase: "Instalações e revestimento", pct: 30, dotClass: "bg-success" },
+            { phase: "Acabamentos e pintura", pct: 15, dotClass: "bg-accent" },
           ].map((p) => (
             <div key={p.phase} className="flex items-center gap-3 text-xs">
-              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${p.dotClass}`} />
               <span className="text-base-content/70 flex-1">{p.phase}</span>
               <span className="badge badge-ghost badge-xs">{p.pct}%</span>
             </div>
@@ -137,9 +129,8 @@ export default function QuoteResultCard({
         </div>
       </div>
 
-      {/* Disclaimer */}
       <div className="alert bg-secondary border-0">
-        <RiToolsLine size={13} className="text-base-content/40 flex-shrink-0" />
+        <MdHandyman size={13} className="text-base-content/40 flex-shrink-0" />
         <div>
           <p className="text-base-content/40 text-xs font-semibold mb-0.5">Observação</p>
           <p className="text-base-content/40 text-xs leading-relaxed">
@@ -150,7 +141,6 @@ export default function QuoteResultCard({
         </div>
       </div>
 
-      {/* CTA */}
       <button
         onClick={onTalkToEngineer}
         className="btn btn-info w-full h-auto py-4 px-4 flex items-center justify-between"
@@ -158,7 +148,7 @@ export default function QuoteResultCard({
         <div className="flex items-center gap-3">
           <div className="avatar placeholder flex-shrink-0">
             <div className="w-9 rounded-full bg-info-content/20 text-info-content">
-              <RiUserVoiceLine size={18} />
+              <MdRecordVoiceOver size={18} />
             </div>
           </div>
           <div className="text-left">
@@ -166,7 +156,7 @@ export default function QuoteResultCard({
             <p className="text-info-content/70 text-xs">Valide esta estimativa e receba um orçamento oficial</p>
           </div>
         </div>
-        <RiArrowRightSLine size={20} className="opacity-70 flex-shrink-0" />
+        <MdChevronRight size={20} className="opacity-70 flex-shrink-0" />
       </button>
     </div>
   );

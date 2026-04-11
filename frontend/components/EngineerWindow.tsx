@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import {
-  RiSearchLine,
-  RiMoreLine,
-  RiSendPlane2Line,
-  RiUserVoiceLine,
-  RiExternalLinkLine,
-  RiCheckDoubleLine,
-} from "react-icons/ri";
+import { MdSearch, MdMoreVert, MdSend, MdRecordVoiceOver, MdOpenInNew, MdDoneAll } from "react-icons/md";
 import type { ConversationState, ChatMessage } from "@/types";
 import {
   ENGINEER_REASON_STEPS,
@@ -32,13 +25,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       {!isUser && (
         <div className="chat-image">
           <div className="w-7 h-7 rounded-full bg-info flex items-center justify-center text-info-content">
-            <RiUserVoiceLine size={14} />
+            <MdRecordVoiceOver size={14} />
           </div>
         </div>
       )}
       <div
-        className={`chat-bubble text-base-content text-sm leading-relaxed shadow-sm ${
-          isUser ? "bg-[#005c4b]" : "bg-base-300"
+        className={`chat-bubble text-sm leading-relaxed shadow-sm ${
+          isUser ? "bg-primary text-primary-content" : "bg-base-300 text-base-content"
         }`}
         style={{ maxWidth: "65%", minWidth: "72px" }}
       >
@@ -49,7 +42,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <span className="flex-1 break-words">{message.text}</span>
           <div className="flex items-center gap-0.5 flex-shrink-0 pb-0.5">
             <span className="text-base-content/40 text-[11px] whitespace-nowrap">{message.timestamp}</span>
-            {isUser && <RiCheckDoubleLine size={14} className="text-accent" />}
+            {isUser && <MdDoneAll size={14} className="text-accent" />}
           </div>
         </div>
       </div>
@@ -126,11 +119,10 @@ export default function EngineerWindow({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 h-full bg-base-200">
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-base-300 flex-shrink-0">
         <div className="avatar placeholder flex-shrink-0">
           <div className="w-10 rounded-full bg-info text-info-content">
-            <RiUserVoiceLine size={20} />
+            <MdRecordVoiceOver size={20} />
           </div>
         </div>
         <div className="flex-1 min-w-0">
@@ -138,17 +130,16 @@ export default function EngineerWindow({
           <div className="text-base-content/50 text-xs">Atendimento humano especializado</div>
         </div>
         <div className="flex items-center gap-1">
-          <button className="btn btn-ghost btn-sm btn-circle"><RiSearchLine size={19} /></button>
-          <button className="btn btn-ghost btn-sm btn-circle"><RiMoreLine size={20} /></button>
+          <button className="btn btn-ghost btn-sm btn-circle"><MdSearch size={19} /></button>
+          <button className="btn btn-ghost btn-sm btn-circle"><MdMoreVert size={20} /></button>
         </div>
       </div>
 
-      {/* Body */}
       {!hasStarted ? (
         <div className="flex flex-col items-center justify-center h-full gap-6 px-8">
           <div className="avatar placeholder">
             <div className="w-20 rounded-full bg-base-300 text-info">
-              <RiUserVoiceLine size={40} />
+              <MdRecordVoiceOver size={40} />
             </div>
           </div>
           <div className="text-center">
@@ -182,7 +173,7 @@ export default function EngineerWindow({
                   rel="noopener noreferrer"
                   className="btn btn-success btn-wide rounded-full gap-2"
                 >
-                  <RiExternalLinkLine size={18} />
+                  <MdOpenInNew size={18} />
                   Abrir conversa no WhatsApp
                 </a>
               </div>
@@ -191,7 +182,6 @@ export default function EngineerWindow({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input area */}
           {reasonAsked && !showRedirectButton && (
             <div className="flex-shrink-0">
               <div className="px-4 pt-3 pb-1 bg-base-100 flex flex-wrap gap-2">
@@ -205,30 +195,32 @@ export default function EngineerWindow({
                   </button>
                 ))}
               </div>
-              {/* Free text fallback */}
               <div className="flex items-center gap-2 px-4 py-3 bg-base-300">
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleFreeText(); }}
-                  placeholder="Ou descreva o motivo..."
-                  className="input input-bordered flex-1 text-sm"
-                />
+                <fieldset className="fieldset flex-1">
+                  <legend className="fieldset-legend">Descreva o motivo</legend>
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleFreeText(); }}
+                    placeholder="Ou descreva o motivo..."
+                    className="input w-full"
+                  />
+                </fieldset>
                 <button
                   onClick={handleFreeText}
                   disabled={!inputValue.trim()}
-                  className="btn btn-info btn-circle"
+                  className="btn btn-info btn-circle mt-5"
                 >
-                  <RiSendPlane2Line size={20} />
+                  <MdSend size={20} />
                 </button>
               </div>
             </div>
           )}
 
           {showRedirectButton && (
-            <div className="px-4 py-4 bg-[#202c33] flex-shrink-0 text-center">
-              <span className="text-[#8696a0] text-sm">
+            <div className="px-4 py-4 bg-base-300 flex-shrink-0 text-center">
+              <span className="text-base-content/50 text-sm">
                 Clique no botao acima para abrir o WhatsApp.
               </span>
             </div>

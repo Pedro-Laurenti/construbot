@@ -7,10 +7,9 @@ body {
   height: 100%;
 }
 
-/* Thin scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #374045 transparent;
+  scrollbar-color: hsl(var(--bc) / 0.2) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -22,11 +21,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #374045;
+  background-color: hsl(var(--bc) / 0.2);
   border-radius: 3px;
 }
 
-/* Hide scrollbar utility */
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

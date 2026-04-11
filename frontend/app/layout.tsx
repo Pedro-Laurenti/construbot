@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" data-theme="whatsapp">
+      <html lang="pt-BR" data-theme="mydark">
       <body className="h-screen overflow-hidden bg-base-100">{children}</body>
     </html>
   );

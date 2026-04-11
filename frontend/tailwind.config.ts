@@ -12,7 +12,27 @@ const config = {
   daisyui: {
     themes: [
       {
-        whatsapp: {
+        mylight: {
+          primary: "#00a884",
+          "primary-content": "#ffffff",
+          secondary: "#f0f2f5",
+          "secondary-content": "#3b4a54",
+          accent: "#009de2",
+          "accent-content": "#ffffff",
+          neutral: "#3b4a54",
+          "neutral-content": "#ffffff",
+          "base-100": "#ffffff",
+          "base-200": "#f0f2f5",
+          "base-300": "#e8e9ec",
+          "base-content": "#3b4a54",
+          info: "#009de2",
+          success: "#00a884",
+          warning: "#f59e0b",
+          error: "#ef4444",
+        },
+      },
+      {
+        mydark: {
           primary: "#00a884",
           "primary-content": "#ffffff",
           secondary: "#2a3942",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { RiCalculatorLine, RiUserVoiceLine, RiSearchLine, RiMoreLine, RiNewspaperLine, RiLogoutBoxLine } from "react-icons/ri";
+import { MdCalculate, MdRecordVoiceOver, MdSearch, MdMoreVert, MdArticle, MdLogout } from "react-icons/md";
 import type { ConversationId } from "@/types";
 
 interface NavItem {
@@ -9,7 +9,7 @@ interface NavItem {
   label: string;
   sublabel: string;
   icon: React.ReactNode;
-  avatarBg: string;
+  avatarClass: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -17,15 +17,15 @@ const NAV_ITEMS: NavItem[] = [
     id: "cotacao",
     label: "Realizar Cotação",
     sublabel: "Assistente de cotações de obras",
-    icon: <RiCalculatorLine size={22} />,
-    avatarBg: "#00a884",
+    icon: <MdCalculate size={22} />,
+    avatarClass: "bg-primary text-primary-content",
   },
   {
     id: "engenheiro",
     label: "Falar com Engenheiro",
     sublabel: "Atendimento humano especializado",
-    icon: <RiUserVoiceLine size={22} />,
-    avatarBg: "#1d4ed8",
+    icon: <MdRecordVoiceOver size={22} />,
+    avatarClass: "bg-info text-info-content",
   },
 ];
 
@@ -46,7 +46,6 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -59,7 +58,6 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
 
   return (
     <aside className="w-[380px] min-w-[380px] flex flex-col h-full border-r border-secondary bg-base-100">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-base-300 flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="avatar placeholder flex-shrink-0">
@@ -78,7 +76,7 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
             className="btn btn-ghost btn-sm btn-circle"
             title="Mais opções"
           >
-            <RiMoreLine size={20} />
+            <MdMoreVert size={20} />
           </button>
           {menuOpen && (
             <ul className="menu absolute top-full right-0 mt-1 w-44 bg-base-300 rounded-box shadow-xl z-50 border border-secondary p-1">
@@ -87,7 +85,7 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
                   onClick={() => { setMenuOpen(false); onLogout(); }}
                   className="flex items-center gap-2 text-sm"
                 >
-                  <RiLogoutBoxLine size={16} className="text-base-content/50" />
+                  <MdLogout size={16} className="text-base-content/50" />
                   Sair da conta
                 </button>
               </li>
@@ -96,10 +94,9 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
         </div>
       </div>
 
-      {/* Search */}
       <div className="px-3 py-2 bg-base-100 flex-shrink-0">
         <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-1.5 w-full cursor-text">
-          <RiSearchLine size={15} className="text-base-content/40 flex-shrink-0" />
+          <MdSearch size={15} className="text-base-content/40 flex-shrink-0" />
           <span className="text-base-content/40 text-sm select-none">
             Pesquisar ou começar nova conversa
           </span>
@@ -108,7 +105,6 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
 
       <div className="divider my-0 h-px" />
 
-      {/* Nav items */}
       <ul className="menu flex-1 overflow-y-auto p-0 gap-0">
         {NAV_ITEMS.map((item) => (
           <li key={item.id}>
@@ -119,8 +115,7 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
               }`}
             >
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white flex-shrink-0"
-                style={{ backgroundColor: item.avatarBg }}
+                className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${item.avatarClass}`}
               >
                 {item.icon}
               </div>
@@ -137,10 +132,9 @@ export default function Sidebar({ selectedId, onSelect, onLogout, userName }: Si
         ))}
       </ul>
 
-      {/* Footer */}
       <div className="flex-shrink-0 px-4 py-3 bg-base-300 border-t border-secondary">
         <div className="flex items-center gap-2 text-base-content/40">
-          <RiNewspaperLine size={14} />
+          <MdArticle size={14} />
           <span className="text-xs">ConstruBot - Plataforma de cotações</span>
         </div>
       </div>

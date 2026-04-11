@@ -2,23 +2,23 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  RiSearchLine,
-  RiMoreLine,
-  RiSendPlane2Line,
-  RiRobotLine,
-  RiCheckDoubleLine,
-  RiUserLine,
-  RiQuestionLine,
-  RiArrowRightSLine,
-  RiMapPinLine,
-  RiRulerLine,
-  RiHome3Line,
-  RiStore2Line,
-  RiHammerLine,
-  RiBuilding4Line,
-  RiCheckLine,
-  RiCloseLine,
-} from "react-icons/ri";
+  MdSearch,
+  MdMoreVert,
+  MdSend,
+  MdSmartToy,
+  MdDoneAll,
+  MdPerson,
+  MdHelp,
+  MdChevronRight,
+  MdLocationOn,
+  MdStraighten,
+  MdHome,
+  MdStorefront,
+  MdBuild,
+  MdApartment,
+  MdCheck,
+  MdClose,
+} from "react-icons/md";
 import type { ConversationState, ChatMessage } from "@/types";
 import {
   ONBOARDING_STEPS,
@@ -37,8 +37,6 @@ interface ChatWindowProps {
   onStateChange: (updater: ConversationState | ((prev: ConversationState) => ConversationState)) => void;
   onGoToEngineer: () => void;
 }
-
-// ─── Help content definitions ────────────────────────────────────────────────
 
 const HELP_CONTENT: Record<string, HelpContent> = {
   padrao: {
@@ -67,8 +65,6 @@ const HELP_CONTENT: Record<string, HelpContent> = {
   },
 };
 
-// ─── Shared helpers ───────────────────────────────────────────────────────────
-
 function addBotMsg(
   text: string,
   sender: ChatMessage["sender"],
@@ -92,8 +88,6 @@ function addUserMsg(text: string, base: ConversationState): ConversationState {
   };
   return { ...base, messages: [...base.messages, msg] };
 }
-
-// ─── Message bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({
   message,
@@ -123,13 +117,13 @@ function MessageBubble({
               isOnboarding ? "bg-primary" : "bg-info"
             }`}
           >
-            <RiRobotLine size={14} />
+            <MdSmartToy size={14} />
           </div>
         </div>
       )}
       <div
-        className={`chat-bubble text-base-content text-sm leading-relaxed shadow-sm ${
-          isUser ? "bg-[#005c4b]" : "bg-base-300"
+        className={`chat-bubble text-sm leading-relaxed shadow-sm ${
+          isUser ? "bg-primary text-primary-content" : "bg-base-300 text-base-content"
         }`}
         style={{ maxWidth: "65%", minWidth: "72px" }}
       >
@@ -146,12 +140,12 @@ function MessageBubble({
               className="btn btn-ghost btn-xs btn-circle border border-base-content/30 flex-shrink-0 mb-0.5"
               title="Saiba mais"
             >
-              <RiQuestionLine size={11} />
+              <MdHelp size={11} />
             </button>
           )}
           <div className="flex items-center gap-0.5 flex-shrink-0 pb-0.5">
             <span className="text-base-content/40 text-[11px] whitespace-nowrap">{message.timestamp}</span>
-            {isUser && <RiCheckDoubleLine size={14} className="text-accent" />}
+            {isUser && <MdDoneAll size={14} className="text-accent" />}
           </div>
         </div>
       </div>
@@ -159,14 +153,12 @@ function MessageBubble({
   );
 }
 
-// ─── Start screen ─────────────────────────────────────────────────────────────
-
 function StartPrompt({ onStart }: { onStart: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-6 px-8">
       <div className="avatar placeholder">
         <div className="w-20 rounded-full bg-base-300 text-primary">
-          <RiRobotLine size={40} />
+            <MdSmartToy size={40} />
         </div>
       </div>
       <div className="text-center">
@@ -183,11 +175,6 @@ function StartPrompt({ onStart }: { onStart: () => void }) {
   );
 }
 
-// ─── Onboarding input ─────────────────────────────────────────────────────────
-
-// Formats digits (DDD + local, no country code) as (DDD) XXXXX-XXXX
-// The country code "+55" is shown as a static prefix outside the input so
-// it never appears in e.target.value and can't contaminate phoneDigits.
 function formatNationalPhone(digits: string): string {
   if (!digits) return "";
   if (digits.length <= 2) return `(${digits}`;
@@ -206,7 +193,7 @@ function OnboardingInput({
   onSubmit: (value: string) => void;
 }) {
   const [value, setValue] = useState("");
-  const [phoneDigits, setPhoneDigits] = useState(""); // DDD + local digits, no country code
+  const [phoneDigits, setPhoneDigits] = useState("");
 
   const config = [
     { label: "Nome completo", placeholder: "Seu nome completo", type: "text" },
@@ -214,12 +201,9 @@ function OnboardingInput({
     { label: "E-mail", placeholder: "seu@email.com", type: "email" },
   ][step] ?? { label: "", placeholder: "", type: "text" };
 
-  // min 10 digits = 2 DDD + 8 local; max 11 = 2 DDD + 9 local
   const phoneValid = phoneDigits.length >= 10;
 
   function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
-    // e.target.value contains only the national part (no "+55"), so stripping
-    // non-digits gives exactly the digits the user typed.
     const raw = e.target.value.replace(/\D/g, "").slice(0, 11);
     setPhoneDigits(raw);
   }
@@ -228,7 +212,6 @@ function OnboardingInput({
     e.preventDefault();
     if (step === 1) {
       if (!phoneValid) return;
-      // Submit with full international format
       onSubmit(`+55 ${formatNationalPhone(phoneDigits)}`);
       setPhoneDigits("");
     } else {
@@ -249,51 +232,52 @@ function OnboardingInput({
 
   return (
     <form onSubmit={handleSubmit} className="px-4 py-3 bg-base-300 flex-shrink-0">
-      <div className="flex items-center gap-2 mb-2 bg-secondary rounded-lg px-3 py-2">
-        <RiUserLine size={14} className="text-base-content/40" />
-        <span className="text-base-content/50 text-xs">{config.label}</span>
-      </div>
       <div className="flex items-center gap-2">
         {step === 1 ? (
-          <div className="flex flex-1 items-center border border-base-content/20 rounded-lg overflow-hidden bg-base-100">
-            <span className="text-base-content/40 text-sm px-3 font-mono border-r border-base-content/20 select-none flex-shrink-0 self-stretch flex items-center">+55</span>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={formatNationalPhone(phoneDigits)}
-              onChange={handlePhoneChange}
-              placeholder="(62) 98448-3697"
-              autoFocus
-              className="input flex-1 border-none bg-transparent font-mono tracking-wide text-sm"
-            />
-          </div>
+          <fieldset className="fieldset flex-1">
+            <legend className="fieldset-legend">{config.label}</legend>
+            <div className="flex items-center border border-base-content/20 rounded-lg overflow-hidden bg-base-100">
+              <span className="text-base-content/40 text-sm px-3 font-mono border-r border-base-content/20 select-none flex-shrink-0 self-stretch flex items-center">+55</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={formatNationalPhone(phoneDigits)}
+                onChange={handlePhoneChange}
+                placeholder="(62) 98448-3697"
+                autoFocus
+                className="input flex-1 border-none bg-transparent font-mono tracking-wide text-sm"
+              />
+            </div>
+            {phoneHint && <p className="label text-base-content/40 text-[11px]">{phoneHint}</p>}
+          </fieldset>
         ) : (
-          <input
-            type={config.type}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={config.placeholder}
-            autoFocus
-            className="input input-bordered flex-1 text-sm"
-          />
+          <fieldset className="fieldset flex-1">
+            <legend className="fieldset-legend">{config.label}</legend>
+            <input
+              type={config.type}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={config.placeholder}
+              autoFocus
+              className="input w-full"
+            />
+          </fieldset>
         )}
-        <button type="submit" disabled={isDisabled} className="btn btn-primary btn-circle">
-          <RiSendPlane2Line size={20} />
+        <button type="submit" disabled={isDisabled} className="btn btn-primary btn-circle mt-5">
+          <MdSend size={20} />
         </button>
       </div>
-      {phoneHint && <p className="text-base-content/40 text-[11px] mt-1.5 px-1">{phoneHint}</p>}
     </form>
   );
 }
 
-// ─── Step 0 — Tipo de obra ────────────────────────────────────────────────────
 
 const TIPOS_OBRA = [
-  { label: "Casa térrea", icon: <RiHome3Line size={22} /> },
-  { label: "Sobrado", icon: <RiBuilding4Line size={22} /> },
-  { label: "Comercial", icon: <RiStore2Line size={22} /> },
-  { label: "Reforma", icon: <RiHammerLine size={22} /> },
-  { label: "Galpão", icon: <RiBuilding4Line size={22} /> },
+  { label: "Casa térrea", icon: <MdHome size={22} /> },
+  { label: "Sobrado", icon: <MdApartment size={22} /> },
+  { label: "Comercial", icon: <MdStorefront size={22} /> },
+  { label: "Reforma", icon: <MdBuild size={22} /> },
+  { label: "Galpão", icon: <MdApartment size={22} /> },
 ];
 
 function TipoObraInput({ onSelect }: { onSelect: (v: string) => void }) {
@@ -316,7 +300,6 @@ function TipoObraInput({ onSelect }: { onSelect: (v: string) => void }) {
   );
 }
 
-// ─── Step 1 — Área (m²) ───────────────────────────────────────────────────────
 
 function AreaInput({ onSubmit }: { onSubmit: (v: string) => void }) {
   const [value, setValue] = useState("");
@@ -332,8 +315,7 @@ function AreaInput({ onSubmit }: { onSubmit: (v: string) => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="px-4 py-4 bg-base-300 flex-shrink-0">
-      <p className="text-base-content/50 text-xs mb-2">Área total da construção (m²):</p>
-      <div className="flex gap-1.5 flex-wrap mb-3">
+      <div className="flex gap-1.5 flex-wrap mb-2">
         {QUICK.map((q) => (
           <button
             key={q}
@@ -348,27 +330,29 @@ function AreaInput({ onSubmit }: { onSubmit: (v: string) => void }) {
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min={1}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Ou digite o valor (m²)"
-          className="input flex-1 text-sm"
-        />
+        <fieldset className="fieldset flex-1">
+          <legend className="fieldset-legend">Área (m²)</legend>
+          <input
+            type="number"
+            min={1}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Ou digite o valor"
+            className="input w-full"
+          />
+        </fieldset>
         <button
           type="submit"
           disabled={!value || parseFloat(value) <= 0}
-          className="btn btn-primary btn-circle"
+          className="btn btn-primary btn-circle mt-5"
         >
-          <RiArrowRightSLine size={20} />
+          <MdChevronRight size={20} />
         </button>
       </div>
     </form>
   );
 }
 
-// ─── Step 2 — Localização ─────────────────────────────────────────────────────
 
 function LocalizacaoInput({ onSubmit }: { onSubmit: (v: string) => void }) {
   const [zona, setZona] = useState<"Urbana" | "Rural" | "">("");
@@ -383,8 +367,7 @@ function LocalizacaoInput({ onSubmit }: { onSubmit: (v: string) => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="px-4 py-4 bg-base-300 flex-shrink-0">
-      <p className="text-base-content/50 text-xs mb-3">Localização da obra:</p>
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-2">
         {(["Urbana", "Rural"] as const).map((z) => (
           <button
             key={z}
@@ -394,40 +377,45 @@ function LocalizacaoInput({ onSubmit }: { onSubmit: (v: string) => void }) {
               zona === z ? "btn-primary" : "btn-secondary"
             }`}
           >
-            <RiMapPinLine size={16} />
+            <MdLocationOn size={16} />
             {z}
           </button>
         ))}
       </div>
       <div className="flex gap-2">
-        <input
-          type="text"
-          value={cidade}
-          onChange={(e) => setCidade(e.target.value)}
-          placeholder="Cidade"
-          className="input input-bordered flex-1 text-sm"
-        />
-        <input
-          type="text"
-          value={estado}
-          onChange={(e) => setEstado(e.target.value)}
-          placeholder="UF"
-          maxLength={2}
-          className="input input-bordered w-16 text-sm uppercase"
-        />
+        <fieldset className="fieldset flex-1">
+          <legend className="fieldset-legend">Cidade</legend>
+          <input
+            type="text"
+            value={cidade}
+            onChange={(e) => setCidade(e.target.value)}
+            placeholder="Ex: Goiânia"
+            className="input w-full"
+          />
+        </fieldset>
+        <fieldset className="fieldset w-16">
+          <legend className="fieldset-legend">UF</legend>
+          <input
+            type="text"
+            value={estado}
+            onChange={(e) => setEstado(e.target.value)}
+            placeholder="GO"
+            maxLength={2}
+            className="input w-full uppercase"
+          />
+        </fieldset>
         <button
           type="submit"
           disabled={!zona || !cidade.trim() || !estado.trim()}
-          className="btn btn-primary btn-circle"
+          className="btn btn-primary btn-circle mt-5"
         >
-          <RiArrowRightSLine size={20} />
+          <MdChevronRight size={20} />
         </button>
       </div>
     </form>
   );
 }
 
-// ─── Step 3 — Terreno ─────────────────────────────────────────────────────────
 
 function TerrenoInput({
   onSubmit,
@@ -454,13 +442,13 @@ function TerrenoInput({
       <div className="flex items-center justify-between mb-3">
         <p className="text-base-content/50 text-xs">Você já possui o terreno?</p>
         <button onClick={onShowHelp} className="btn btn-ghost btn-xs btn-circle border border-base-content/30">
-          <RiQuestionLine size={11} />
+          <MdHelp size={11} />
         </button>
       </div>
       <div className="flex gap-2 mb-3">
         {[
-          { v: true, label: "Sim", icon: <RiCheckLine size={16} /> },
-          { v: false, label: "Não", icon: <RiCloseLine size={16} /> },
+          { v: true, label: "Sim", icon: <MdCheck size={16} /> },
+          { v: false, label: "Não", icon: <MdClose size={16} /> },
         ].map((opt) => (
           <button
             key={String(opt.v)}
@@ -476,31 +464,37 @@ function TerrenoInput({
         ))}
       </div>
       {possui && (
-        <div className="flex gap-2 mb-3 items-center">
-          <label className="input input-bordered flex-1 flex items-center gap-2">
-            <RiRulerLine size={14} className="text-base-content/40" />
-            <input
-              type="number"
-              min={1}
-              value={larg}
-              onChange={(e) => setLarg(e.target.value)}
-              placeholder="Largura"
-              className="grow bg-transparent outline-none text-sm"
-            />
-            <span className="text-base-content/40 text-xs">m</span>
-          </label>
-          <span className="text-base-content/40">×</span>
-          <label className="input input-bordered flex-1 flex items-center gap-2">
-            <input
-              type="number"
-              min={1}
-              value={comp}
-              onChange={(e) => setComp(e.target.value)}
-              placeholder="Comprimento"
-              className="grow bg-transparent outline-none text-sm"
-            />
-            <span className="text-base-content/40 text-xs">m</span>
-          </label>
+        <div className="flex gap-2 mb-3 items-end">
+          <fieldset className="fieldset flex-1">
+            <legend className="fieldset-legend">Largura</legend>
+            <label className="input input-bordered flex items-center gap-2 w-full">
+              <MdStraighten size={14} className="text-base-content/40" />
+              <input
+                type="number"
+                min={1}
+                value={larg}
+                onChange={(e) => setLarg(e.target.value)}
+                placeholder="Ex: 10"
+                className="grow bg-transparent outline-none"
+              />
+              <span className="text-base-content/40 text-xs">m</span>
+            </label>
+          </fieldset>
+          <span className="text-base-content/40 mb-3">×</span>
+          <fieldset className="fieldset flex-1">
+            <legend className="fieldset-legend">Comprimento</legend>
+            <label className="input input-bordered flex items-center gap-2 w-full">
+              <input
+                type="number"
+                min={1}
+                value={comp}
+                onChange={(e) => setComp(e.target.value)}
+                placeholder="Ex: 25"
+                className="grow bg-transparent outline-none"
+              />
+              <span className="text-base-content/40 text-xs">m</span>
+            </label>
+          </fieldset>
         </div>
       )}
       {possui !== null && (
@@ -516,25 +510,27 @@ function TerrenoInput({
   );
 }
 
-// ─── Step 4 — Padrão de acabamento ───────────────────────────────────────────
 
 const PADROES = [
   {
     key: "Simples",
     desc: "Cerâmica, pintura básica, louças de linha econômica",
-    color: "#8696a0",
+    dotClass: "bg-base-content/40",
+    badgeClass: "badge-ghost",
     range: "R$ 2.200 – 2.800/m²",
   },
   {
     key: "Médio",
     desc: "Porcelanato, gesso, esquadrias de alumínio",
-    color: "#00a884",
+    dotClass: "bg-primary",
+    badgeClass: "badge-primary",
     range: "R$ 3.500 – 4.500/m²",
   },
   {
     key: "Alto",
     desc: "Mármore, automação, materiais importados",
-    color: "#f59e0b",
+    dotClass: "bg-warning",
+    badgeClass: "badge-warning",
     range: "R$ 6.000 – 9.000/m²",
   },
 ];
@@ -551,7 +547,7 @@ function PadraoInput({
       <div className="flex items-center justify-between mb-3">
         <p className="text-base-content/50 text-xs">Padrão de acabamento:</p>
         <button onClick={onShowHelp} className="btn btn-ghost btn-xs btn-circle border border-base-content/30">
-          <RiQuestionLine size={11} />
+          <MdHelp size={11} />
         </button>
       </div>
       <div className="flex flex-col gap-2">
@@ -561,12 +557,12 @@ function PadraoInput({
             onClick={() => onSelect(p.key)}
             className="flex items-center gap-3 bg-secondary hover:bg-secondary/80 rounded-xl px-4 py-3 transition-colors text-left"
           >
-            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${p.dotClass}`} />
             <div className="flex-1 min-w-0">
               <div className="text-base-content text-sm font-semibold">{p.key}</div>
               <div className="text-base-content/50 text-xs truncate">{p.desc}</div>
             </div>
-            <div className="text-xs font-medium flex-shrink-0 badge badge-outline" style={{ color: p.color, borderColor: p.color }}>
+            <div className={`text-xs font-medium flex-shrink-0 badge badge-outline ${p.badgeClass}`}>
               {p.range}
             </div>
           </button>
@@ -576,7 +572,6 @@ function PadraoInput({
   );
 }
 
-// ─── Step 5 — Projeto ─────────────────────────────────────────────────────────
 
 const PROJETO_OPTIONS = [
   "Sim, já possuo projeto completo",
@@ -597,7 +592,7 @@ function ProjetoInput({
       <div className="flex items-center justify-between mb-3">
         <p className="text-base-content/50 text-xs">Situação dos projetos:</p>
         <button onClick={onShowHelp} className="btn btn-ghost btn-xs btn-circle border border-base-content/30">
-          <RiQuestionLine size={11} />
+          <MdHelp size={11} />
         </button>
       </div>
       <div className="flex flex-col gap-2">
@@ -615,7 +610,6 @@ function ProjetoInput({
   );
 }
 
-// ─── Step 6 — Prazo ──────────────────────────────────────────────────────────
 
 const PRAZO_LABELS = [
   "Menos de 6 meses",
@@ -662,7 +656,6 @@ function PrazoInput({ onSelect }: { onSelect: (v: string) => void }) {
   );
 }
 
-// ─── Step 7 — Orçamento ───────────────────────────────────────────────────────
 
 const ORCAMENTO_LABELS = [
   "Até R$ 100 mil",
@@ -671,15 +664,6 @@ const ORCAMENTO_LABELS = [
   "R$ 600 mil – R$ 1 milhão",
   "Acima de R$ 1 milhão",
   "Ainda não defini",
-];
-
-const ORCAMENTO_COLORS = [
-  "#8696a0",
-  "#53bdeb",
-  "#00a884",
-  "#f59e0b",
-  "#ef4444",
-  "#8696a0",
 ];
 
 function OrcamentoInput({ onSelect }: { onSelect: (v: string) => void }) {
@@ -696,15 +680,11 @@ function OrcamentoInput({ onSelect }: { onSelect: (v: string) => void }) {
           step={1}
           value={idx}
           onChange={(e) => setIdx(Number(e.target.value))}
-          className="range range-sm cursor-pointer"
-          style={{ accentColor: ORCAMENTO_COLORS[idx] }}
+          className="range range-primary range-sm cursor-pointer"
         />
         <div className="flex items-center justify-between text-[10px] text-base-content/40 px-0.5">
           <span>Menor</span>
-          <span
-            className="badge badge-lg font-semibold"
-            style={{ color: ORCAMENTO_COLORS[idx], backgroundColor: `${ORCAMENTO_COLORS[idx]}22`, borderColor: `${ORCAMENTO_COLORS[idx]}44` }}
-          >
+          <span className="badge badge-primary badge-lg font-semibold">
             {ORCAMENTO_LABELS[idx]}
           </span>
           <span>Maior</span>
@@ -722,7 +702,6 @@ function OrcamentoInput({ onSelect }: { onSelect: (v: string) => void }) {
   );
 }
 
-// ─── Root ChatWindow ──────────────────────────────────────────────────────────
 
 export default function ChatWindow({
   conversationId,
@@ -875,11 +854,10 @@ export default function ChatWindow({
       )}
 
       <div className="flex-1 flex flex-col min-w-0 h-full bg-base-200">
-        {/* Header */}
         <div className="flex items-center gap-3 px-4 py-2.5 bg-base-300 flex-shrink-0">
           <div className="avatar placeholder flex-shrink-0">
             <div className="w-10 rounded-full bg-primary text-primary-content">
-              <RiRobotLine size={20} />
+            <MdSmartToy size={20} />
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -887,12 +865,11 @@ export default function ChatWindow({
             <div className="text-base-content/50 text-xs">Assistente automatizado</div>
           </div>
           <div className="flex items-center gap-1">
-            <button className="btn btn-ghost btn-sm btn-circle"><RiSearchLine size={19} /></button>
-            <button className="btn btn-ghost btn-sm btn-circle"><RiMoreLine size={20} /></button>
+          <button className="btn btn-ghost btn-sm btn-circle"><MdSearch size={19} /></button>
+          <button className="btn btn-ghost btn-sm btn-circle"><MdMoreVert size={20} /></button>
           </div>
         </div>
 
-        {/* Body */}
         {!hasStarted ? (
           <StartPrompt onStart={handleStartConversation} />
         ) : (
@@ -920,7 +897,7 @@ export default function ChatWindow({
               )}
 
               {cotacaoFinished && !quoteResult && (
-                <div className="text-center text-[#8696a0] text-sm py-4">
+                <div className="text-center text-base-content/50 text-sm py-4">
                   Cotação enviada. Aguarde o contato de um engenheiro.
                 </div>
               )}

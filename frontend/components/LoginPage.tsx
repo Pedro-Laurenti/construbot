@@ -1,16 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
-import {
-  RiLockPasswordLine,
-  RiUserLine,
-  RiEyeLine,
-  RiEyeOffLine,
-  RiBuilding4Line,
-  RiToolsLine,
-  RiFileList3Line,
-} from "react-icons/ri";
+import { MdLock, MdPerson, MdVisibility, MdVisibilityOff, MdApartment, MdHandyman, MdDescription, MdLogin } from "react-icons/md";
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -18,17 +9,17 @@ interface LoginPageProps {
 
 const FEATURES = [
   {
-    icon: <RiBuilding4Line size={20} />,
+    icon: <MdApartment size={20} />,
     title: "Cotações de Obras",
     desc: "Receba estimativas detalhadas para sua construção.",
   },
   {
-    icon: <RiToolsLine size={20} />,
+    icon: <MdHandyman size={20} />,
     title: "Assistente Inteligente",
     desc: "Um bot guia você passo a passo no processo.",
   },
   {
-    icon: <RiFileList3Line size={20} />,
+    icon: <MdDescription size={20} />,
     title: "Engenheiros Especializados",
     desc: "Suporte humano quando você precisar.",
   },
@@ -71,7 +62,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <div className="flex items-center gap-3 mb-16">
             <div className="avatar placeholder">
               <div className="w-10 rounded-xl bg-primary-content/20 text-primary-content flex items-center justify-center">
-                <RiBuilding4Line size={22} />
+                <MdApartment size={22} />
               </div>
             </div>
             <span className="text-primary-content text-xl font-bold tracking-tight">ConstruBot</span>
@@ -112,7 +103,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <div className="flex lg:hidden items-center gap-3 justify-center">
               <div className="avatar placeholder">
                 <div className="w-10 rounded-xl bg-primary text-primary-content">
-                  <RiBuilding4Line size={20} />
+                <MdApartment size={20} />
                 </div>
               </div>
               <span className="text-base-content text-xl font-bold">ConstruBot</span>
@@ -160,9 +151,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <fieldset className="fieldset gap-1">
                   <legend className="fieldset-legend text-sm">
                     <span>Senha</span>
-                    <button type="button" className="link link-primary text-xs ml-auto">
-                      Esqueci a senha
-                    </button>
                   </legend>
                   <div className="relative">
                     <input
@@ -179,7 +167,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content/70"
                       tabIndex={-1}
                     >
-                      {showPassword ? <RiEyeOffLine size={16} /> : <RiEyeLine size={16} />}
+                      {showPassword ? <MdVisibilityOff size={16} /> : <MdVisibility size={16} />}
                     </button>
                   </div>
                 </fieldset>
@@ -197,6 +185,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 >
                   {isLoading ? <span className="loading loading-spinner loading-sm" /> : "Entrar"}
                 </button>
+                <button type="button" className="link link-primary text-xs ml-auto">
+                  Esqueci a senha
+                </button>
               </form>
             ) : (
               <div className="flex flex-col gap-4">
@@ -212,7 +203,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     <span className="loading loading-spinner loading-sm" />
                   ) : (
                     <>
-                      <FcGoogle size={20} />
+                      <MdLogin size={20} />
                       Continuar com Google
                     </>
                   )}
