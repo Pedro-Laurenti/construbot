@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MdCalculate, MdRecordVoiceOver, MdSearch, MdMoreVert, MdArticle, MdLogout } from "react-icons/md";
+import { MdCalculate, MdRecordVoiceOver, MdSearch, MdMoreVert, MdArticle, MdLogout, MdPerson } from "react-icons/md";
 import type { ConversationId } from "@/types";
 
 interface NavItem {
@@ -13,6 +13,13 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    id: "inicial",
+    label: "Assistente inicial",
+    sublabel: "Informações sobre você",
+    icon: <MdPerson size={22} />,
+    avatarClass: "bg-success text-success-content",
+  },
   {
     id: "cotacao",
     label: "Realizar Cotação",

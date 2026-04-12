@@ -4,15 +4,15 @@ const SESSION_KEY = "construbot_session";
 
 const defaultConversation = (): ConversationState => ({
   messages: [],
-  onboardingComplete: false,
-  onboardingStep: 0,
-  userProfile: {},
   cotacaoStep: 0,
+  cotacaoComplete: false,
 });
 
 const defaultSession = (): AppSession => ({
   isLoggedIn: false,
+  userProfile: {},
   conversations: {
+    inicial: defaultConversation(),
     cotacao: defaultConversation(),
     engenheiro: defaultConversation(),
   },

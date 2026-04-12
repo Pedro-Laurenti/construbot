@@ -4,10 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   MdSearch,
   MdMoreVert,
-  MdSend,
   MdSmartToy,
   MdDoneAll,
-  MdPerson,
   MdHelp,
   MdChevronRight,
   MdLocationOn,
@@ -18,10 +16,10 @@ import {
   MdApartment,
   MdCheck,
   MdClose,
+  MdRefresh,
 } from "react-icons/md";
-import type { ConversationState, ChatMessage } from "@/types";
+import type { ConversationState, ChatMessage, UserProfile } from "@/types";
 import {
-  ONBOARDING_STEPS,
   COTACAO_STEPS,
   formatTimestamp,
   generateId,
@@ -36,6 +34,9 @@ interface ChatWindowProps {
   state: ConversationState;
   onStateChange: (updater: ConversationState | ((prev: ConversationState) => ConversationState)) => void;
   onGoToEngineer: () => void;
+  onCotacaoComplete: () => void;
+  onGoToInicial: () => void;
+  userProfile: Partial<UserProfile>;
 }
 
 const HELP_CONTENT: Record<string, HelpContent> = {
@@ -65,30 +66,6 @@ const HELP_CONTENT: Record<string, HelpContent> = {
   },
 };
 
-function addBotMsg(
-  text: string,
-  sender: ChatMessage["sender"],
-  base: ConversationState
-): ConversationState {
-  const msg: ChatMessage = {
-    id: generateId(),
-    sender,
-    text,
-    timestamp: formatTimestamp(),
-  };
-  return { ...base, messages: [...base.messages, msg] };
-}
-
-function addUserMsg(text: string, base: ConversationState): ConversationState {
-  const msg: ChatMessage = {
-    id: generateId(),
-    sender: "user",
-    text,
-    timestamp: formatTimestamp(),
-  };
-  return { ...base, messages: [...base.messages, msg] };
-}
-
 function MessageBubble({
   message,
   onShowHelp,
@@ -97,7 +74,6 @@ function MessageBubble({
   onShowHelp: (key: string) => void;
 }) {
   const isUser = message.sender === "user";
-  const isOnboarding = message.sender === "bot-onboarding";
 
   const helpKey =
     !isUser && message.text.toLowerCase().includes("padrão de acabamento")
@@ -112,11 +88,7 @@ function MessageBubble({
     <div className={`chat ${isUser ? "chat-end" : "chat-start"} mb-1`}>
       {!isUser && (
         <div className="chat-image">
-          <div
-            className={`w-7 h-7 rounded-full flex items-center justify-center text-white ${
-              isOnboarding ? "bg-primary" : "bg-info"
-            }`}
-          >
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white bg-info">
             <MdSmartToy size={14} />
           </div>
         </div>
@@ -128,8 +100,8 @@ function MessageBubble({
         style={{ maxWidth: "65%", minWidth: "72px" }}
       >
         {!isUser && (
-          <div className={`text-xs font-semibold mb-1 ${isOnboarding ? "text-primary" : "text-accent"}`}>
-            {isOnboarding ? "Informações iniciais" : "Assistente de Cotação"}
+          <div className="text-xs font-semibold mb-1 text-accent">
+            Assistente de Cotação
           </div>
         )}
         <div className="flex items-end gap-2 min-w-0">
@@ -174,103 +146,6 @@ function StartPrompt({ onStart }: { onStart: () => void }) {
     </div>
   );
 }
-
-function formatNationalPhone(digits: string): string {
-  if (!digits) return "";
-  if (digits.length <= 2) return `(${digits}`;
-  const ddd = digits.slice(0, 2);
-  const local = digits.slice(2);
-  if (local.length === 0) return `(${ddd}) `;
-  if (local.length <= 4) return `(${ddd}) ${local}`;
-  return `(${ddd}) ${local.slice(0, local.length - 4)}-${local.slice(-4)}`;
-}
-
-function OnboardingInput({
-  step,
-  onSubmit,
-}: {
-  step: number;
-  onSubmit: (value: string) => void;
-}) {
-  const [value, setValue] = useState("");
-  const [phoneDigits, setPhoneDigits] = useState("");
-
-  const config = [
-    { label: "Nome completo", placeholder: "Seu nome completo", type: "text" },
-    { label: "Telefone", placeholder: "", type: "tel" },
-    { label: "E-mail", placeholder: "seu@email.com", type: "email" },
-  ][step] ?? { label: "", placeholder: "", type: "text" };
-
-  const phoneValid = phoneDigits.length >= 10;
-
-  function handlePhoneChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value.replace(/\D/g, "").slice(0, 11);
-    setPhoneDigits(raw);
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (step === 1) {
-      if (!phoneValid) return;
-      onSubmit(`+55 ${formatNationalPhone(phoneDigits)}`);
-      setPhoneDigits("");
-    } else {
-      if (!value.trim()) return;
-      onSubmit(value.trim());
-      setValue("");
-    }
-  }
-
-  const isDisabled = step === 1 ? !phoneValid : !value.trim();
-
-  const phoneHint =
-    step === 1 && phoneDigits.length > 0 && !phoneValid
-      ? phoneDigits.length < 2
-        ? "Digite o DDD"
-        : `Faltam ${10 - phoneDigits.length} dígito(s)`
-      : null;
-
-  return (
-    <form onSubmit={handleSubmit} className="px-4 py-3 bg-base-300 flex-shrink-0">
-      <div className="flex items-center gap-2">
-        {step === 1 ? (
-          <fieldset className="fieldset flex-1">
-            <legend className="fieldset-legend">{config.label}</legend>
-            <div className="flex items-center border border-base-content/20 rounded-lg overflow-hidden bg-base-100">
-              <span className="text-base-content/40 text-sm px-3 font-mono border-r border-base-content/20 select-none flex-shrink-0 self-stretch flex items-center">+55</span>
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={formatNationalPhone(phoneDigits)}
-                onChange={handlePhoneChange}
-                placeholder="(62) 98448-3697"
-                autoFocus
-                className="input flex-1 border-none bg-transparent font-mono tracking-wide text-sm"
-              />
-            </div>
-            {phoneHint && <p className="label text-base-content/40 text-[11px]">{phoneHint}</p>}
-          </fieldset>
-        ) : (
-          <fieldset className="fieldset flex-1">
-            <legend className="fieldset-legend">{config.label}</legend>
-            <input
-              type={config.type}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={config.placeholder}
-              autoFocus
-              className="input w-full"
-            />
-          </fieldset>
-        )}
-        <button type="submit" disabled={isDisabled} className="btn btn-primary btn-circle mt-5">
-          <MdSend size={20} />
-        </button>
-      </div>
-    </form>
-  );
-}
-
 
 const TIPOS_OBRA = [
   { label: "Casa térrea", icon: <MdHome size={22} /> },
@@ -708,9 +583,11 @@ export default function ChatWindow({
   state,
   onStateChange,
   onGoToEngineer,
+  onCotacaoComplete,
+  onGoToInicial,
+  userProfile,
 }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isCotacao = conversationId === "cotacao";
   const [helpKey, setHelpKey] = useState<string | null>(null);
   const [quoteInputs, setQuoteInputs] = useState<Partial<QuoteInputs>>({});
 
@@ -719,46 +596,24 @@ export default function ChatWindow({
   }, [state.messages]);
 
   const handleStartConversation = useCallback(() => {
-    const next = addBotMsg(ONBOARDING_STEPS[0], "bot-onboarding", {
-      ...state,
-      onboardingStep: 0,
-    });
-    onStateChange(next);
+    const msg: ChatMessage = {
+      id: generateId(),
+      sender: "bot-cotacao",
+      text: COTACAO_STEPS[0],
+      timestamp: formatTimestamp(),
+    };
+    onStateChange({ ...state, messages: [msg], cotacaoStep: 0 });
   }, [state, onStateChange]);
-
-  function handleOnboardingSubmit(value: string) {
-    const step = state.onboardingStep;
-    let next = addUserMsg(value, state);
-
-    const profileUpdate: Partial<typeof state.userProfile> = {};
-    if (step === 0) profileUpdate.name = value;
-    else if (step === 1) profileUpdate.phone = value;
-    else if (step === 2) profileUpdate.email = value;
-
-    next = { ...next, userProfile: { ...next.userProfile, ...profileUpdate } };
-
-    if (step < 2) {
-      next = addBotMsg(ONBOARDING_STEPS[step + 1], "bot-onboarding", next);
-      next = { ...next, onboardingStep: step + 1 };
-    } else {
-      next = addBotMsg(ONBOARDING_STEPS[3], "bot-onboarding", next);
-      next = { ...next, onboardingComplete: true, onboardingStep: 3 };
-
-      setTimeout(() => {
-        onStateChange((prev: ConversationState) => {
-          let s = addBotMsg(COTACAO_STEPS[0], "bot-cotacao", prev);
-          s = { ...s, cotacaoStep: 0 };
-          return s;
-        });
-      }, 1200);
-    }
-
-    onStateChange(next);
-  }
 
   function handleCotacaoStep(value: string) {
     const step = state.cotacaoStep;
-    let next = addUserMsg(value, state);
+    const userMsg: ChatMessage = {
+      id: generateId(),
+      sender: "user",
+      text: value,
+      timestamp: formatTimestamp(),
+    };
+    let next: ConversationState = { ...state, messages: [...state.messages, userMsg] };
 
     const newInputs = { ...quoteInputs };
     if (step === 0) newInputs.tipoObra = value;
@@ -779,21 +634,29 @@ export default function ChatWindow({
     const isFinalStep = nextStep >= COTACAO_STEPS.length - 1;
 
     if (!isFinalStep) {
-      next = addBotMsg(COTACAO_STEPS[nextStep], "bot-cotacao", next);
-      next = { ...next, cotacaoStep: nextStep };
+      const botMsg: ChatMessage = {
+        id: generateId(),
+        sender: "bot-cotacao",
+        text: COTACAO_STEPS[nextStep],
+        timestamp: formatTimestamp(),
+      };
+      next = { ...next, messages: [...next.messages, botMsg], cotacaoStep: nextStep };
     } else {
-      next = { ...next, cotacaoStep: COTACAO_STEPS.length - 1 };
+      next = { ...next, cotacaoStep: COTACAO_STEPS.length - 1, cotacaoComplete: true };
+      onCotacaoComplete();
     }
 
     onStateChange(next);
   }
 
+  function handleRefazerCotacao() {
+    setQuoteInputs({});
+    onStateChange({ ...state, messages: [], cotacaoStep: 0, cotacaoComplete: false });
+  }
+
   const hasStarted = state.messages.length > 0;
-  const onboardingActive = !state.onboardingComplete && hasStarted;
-  const cotacaoActive =
-    state.onboardingComplete && state.cotacaoStep < COTACAO_STEPS.length - 1;
-  const cotacaoFinished =
-    state.onboardingComplete && state.cotacaoStep >= COTACAO_STEPS.length - 1;
+  const cotacaoActive = hasStarted && state.cotacaoStep < COTACAO_STEPS.length - 1;
+  const cotacaoFinished = hasStarted && state.cotacaoStep >= COTACAO_STEPS.length - 1;
 
   const currentCotacaoStep = state.cotacaoStep;
 
@@ -844,6 +707,103 @@ export default function ChatWindow({
       ? calcularOrcamento(quoteInputs as QuoteInputs)
       : null;
 
+  function renderBody() {
+    if (!userProfile.name) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-6 px-8">
+          <div className="avatar placeholder">
+            <div className="w-20 rounded-full bg-base-300 text-success">
+              <MdSmartToy size={40} />
+            </div>
+          </div>
+          <div className="text-center">
+            <h2 className="text-base-content text-lg font-semibold mb-2">Assistente inicial incompleto</h2>
+            <p className="text-base-content/50 text-sm leading-relaxed max-w-sm">
+              Para realizar uma cotação, é necessário primeiro concluir o assistente inicial com suas informações.
+            </p>
+          </div>
+          <button onClick={onGoToInicial} className="btn btn-success btn-wide rounded-full gap-2">
+            Completar assistente inicial
+            <MdChevronRight size={18} />
+          </button>
+        </div>
+      );
+    }
+
+    if (!hasStarted && state.cotacaoComplete) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-6 px-8">
+          <div className="avatar placeholder">
+            <div className="w-20 rounded-full bg-base-300 text-primary">
+              <MdSmartToy size={40} />
+            </div>
+          </div>
+          <div className="text-center">
+            <h2 className="text-base-content text-lg font-semibold mb-2">Cotação anterior</h2>
+            <p className="text-base-content/50 text-sm leading-relaxed max-w-sm">
+              Você já realizou uma cotação. Deseja refazê-la ou iniciar com os dados anteriores?
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button onClick={handleRefazerCotacao} className="btn btn-primary btn-wide rounded-full gap-2">
+              <MdRefresh size={18} />
+              Refazer cotação
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (!hasStarted) {
+      return <StartPrompt onStart={handleStartConversation} />;
+    }
+
+    return (
+      <>
+        <div className="flex-1 overflow-y-auto px-[6%] py-4">
+          <div className="flex justify-center mb-3">
+            <span className="badge badge-ghost text-base-content/40 text-xs">Hoje</span>
+          </div>
+          <div className="flex flex-col">
+            {state.messages.map((msg) => (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onShowHelp={setHelpKey}
+              />
+            ))}
+          </div>
+
+          {cotacaoFinished && quoteResult && (
+            <>
+              <QuoteResultCard
+                result={quoteResult}
+                inputs={quoteInputs as QuoteInputs}
+                onTalkToEngineer={onGoToEngineer}
+              />
+              <div className="flex justify-center mt-4">
+                <button onClick={onGoToEngineer} className="btn btn-info btn-wide rounded-full gap-2">
+                  Falar com um Engenheiro
+                  <MdChevronRight size={18} />
+                </button>
+              </div>
+            </>
+          )}
+
+          {cotacaoFinished && !quoteResult && (
+            <div className="text-center text-base-content/50 text-sm py-4">
+              Cotação enviada. Aguarde o contato de um engenheiro.
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {cotacaoActive && renderCotacaoInput()}
+      </>
+    );
+  }
+
   return (
     <>
       {helpKey && HELP_CONTENT[helpKey] && (
@@ -870,50 +830,7 @@ export default function ChatWindow({
           </div>
         </div>
 
-        {!hasStarted ? (
-          <StartPrompt onStart={handleStartConversation} />
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto px-[6%] py-4">
-              <div className="flex justify-center mb-3">
-                <span className="badge badge-ghost text-base-content/40 text-xs">Hoje</span>
-              </div>
-              <div className="flex flex-col">
-                {state.messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    onShowHelp={setHelpKey}
-                  />
-                ))}
-              </div>
-
-              {cotacaoFinished && quoteResult && (
-                <QuoteResultCard
-                  result={quoteResult}
-                  inputs={quoteInputs as QuoteInputs}
-                  onTalkToEngineer={onGoToEngineer}
-                />
-              )}
-
-              {cotacaoFinished && !quoteResult && (
-                <div className="text-center text-base-content/50 text-sm py-4">
-                  Cotação enviada. Aguarde o contato de um engenheiro.
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {onboardingActive && state.onboardingStep < 3 && (
-              <OnboardingInput
-                step={state.onboardingStep}
-                onSubmit={handleOnboardingSubmit}
-              />
-            )}
-            {cotacaoActive && renderCotacaoInput()}
-          </>
-        )}
+        {renderBody()}
       </div>
     </>
   );

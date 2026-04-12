@@ -1,4 +1,4 @@
-export type ConversationId = "cotacao" | "engenheiro";
+export type ConversationId = "inicial" | "cotacao" | "engenheiro";
 
 export interface UserProfile {
   name: string;
@@ -8,21 +8,20 @@ export interface UserProfile {
 
 export interface ChatMessage {
   id: string;
-  sender: "user" | "bot-onboarding" | "bot-cotacao";
+  sender: "user" | "bot-onboarding" | "bot-cotacao" | "bot-inicial";
   text: string;
   timestamp: string;
 }
 
 export interface ConversationState {
   messages: ChatMessage[];
-  onboardingComplete: boolean;
-  onboardingStep: number;
-  userProfile: Partial<UserProfile>;
   cotacaoStep: number;
+  cotacaoComplete: boolean;
 }
 
 export interface AppSession {
   isLoggedIn: boolean;
+  userProfile: Partial<UserProfile>;
   conversations: Record<ConversationId, ConversationState>;
 }
 

@@ -4,14 +4,15 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import ChatWindow from "@/components/ChatWindow";
 import EngineerWindow from "@/components/EngineerWindow";
+import InicialWindow from "@/components/InicialWindow";
 import LoginPage from "@/components/LoginPage";
 import { loadSession, saveSession, clearSession } from "@/lib/session";
 import { fetchWithAuth } from "@/lib/api";
-import type { AppSession, ConversationId, ConversationState, HealthResponse } from "@/types";
+import type { AppSession, ConversationId, ConversationState, HealthResponse, UserProfile } from "@/types";
 
 export default function Home() {
   const [session, setSession] = useState<AppSession | null>(null);
-  const [selectedId, setSelectedId] = useState<ConversationId>("cotacao");
+  const [selectedId, setSelectedId] = useState<ConversationId>("inicial");
   const [apiStatus, setApiStatus] = useState<"loading" | "ok" | "error">("loading");
 
   useEffect(() => {
@@ -56,14 +57,22 @@ export default function Home() {
     });
   }
 
+  function handleProfileChange(profile: Partial<UserProfile>) {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const updated: AppSession = { ...prev, userProfile: { ...prev.userProfile, ...profile } };
+      saveSession(updated);
+      return updated;
+    });
+  }
+
   if (!session) return null;
 
   if (!session.isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  const cotacaoState = session.conversations.cotacao;
-  const userName = cotacaoState.userProfile.name ?? "Usuario";
+  const userName = session.userProfile.name ?? "Usuario";
 
   return (
     <div className="flex h-screen overflow-hidden relative">
@@ -85,14 +94,31 @@ export default function Home() {
         userName={userName}
       />
 
-      {selectedId === "cotacao" ? (
+      {selectedId === "inicial" && (
+        <InicialWindow
+          state={session.conversations.inicial}
+          onStateChange={(updater) => handleConversationChange("inicial", updater)}
+          userProfile={session.userProfile}
+          onProfileChange={handleProfileChange}
+          onGoToCotacao={() => setSelectedId("cotacao")}
+        />
+      )}
+
+      {selectedId === "cotacao" && (
         <ChatWindow
           conversationId="cotacao"
           state={session.conversations.cotacao}
           onStateChange={(updater) => handleConversationChange("cotacao", updater)}
           onGoToEngineer={() => setSelectedId("engenheiro")}
+          onGoToInicial={() => setSelectedId("inicial")}
+          onCotacaoComplete={() =>
+            handleConversationChange("cotacao", (prev) => ({ ...prev, cotacaoComplete: true }))
+          }
+          userProfile={session.userProfile}
         />
-      ) : (
+      )}
+
+      {selectedId === "engenheiro" && (
         <EngineerWindow
           state={session.conversations.engenheiro}
           onStateChange={(updater) => handleConversationChange("engenheiro", updater)}
