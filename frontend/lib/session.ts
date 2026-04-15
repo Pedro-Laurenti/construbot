@@ -1,21 +1,11 @@
-import type { AppSession, ConversationState } from "@/types";
+import type { AppSession } from "@/types";
 
 const SESSION_KEY = "construbot_session";
 
-const defaultConversation = (): ConversationState => ({
-  messages: [],
-  cotacaoStep: 0,
-  cotacaoComplete: false,
-});
-
 const defaultSession = (): AppSession => ({
-  isLoggedIn: false,
-  userProfile: {},
-  conversations: {
-    inicial: defaultConversation(),
-    cotacao: defaultConversation(),
-    engenheiro: defaultConversation(),
-  },
+  cliente: null,
+  orcamentos: [],
+  orcamentoAtivo: null,
 });
 
 export function loadSession(): AppSession {
