@@ -2,22 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import { fetchWithAuth } from '@/lib/api'
-import { loadStorage, saveStorage, clearStorage } from '@/lib/storage'
+import { loadStorage, saveStorage, clearStorage, loadRole, saveRole } from '@/lib/storage'
 import { SEED_CLIENTE, SEED_ORCAMENTO } from '@/lib/mockData'
+import LoginPage from '@/components/LoginPage'
 import OnboardingForm from '@/components/OnboardingForm'
 import Sidebar from '@/components/Sidebar'
 import OrcamentoChatFlow from '@/components/OrcamentoChatFlow'
 import ResultadoOrcamento from '@/components/ResultadoOrcamento'
+import EngineerApp from '@/components/engenheiro/EngineerApp'
 import { MdSmartToy, MdApartment, MdHistory } from 'react-icons/md'
 import { formatDate } from '@/lib/formatters'
-import type { AppSession, Cliente, Orcamento } from '@/types'
+import type { AppSession, Cliente, Orcamento, UserRole } from '@/types'
 
 export default function Home() {
   const [session, setSession] = useState<AppSession | null>(null)
+  const [role, setRole] = useState<UserRole>('cliente')
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [selectedId, setSelectedId] = useState<string>('novo')
   const [apiStatus, setApiStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
   useEffect(() => {
+    const r = loadRole()
+    setRole(r)
     const stored = loadStorage()
     const isDemo = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === '1'
     if (isDemo && !stored.cliente) {
@@ -62,9 +68,19 @@ export default function Home() {
   function handleLogout() {
     clearStorage()
     setSession({ cliente: null, orcamentos: [], orcamentoAtivo: null })
+    setShowOnboarding(false)
   }
 
   if (!session) return null
+
+  if (role === 'engenheiro') {
+    return <EngineerApp onLogout={() => { saveRole('cliente'); setRole('cliente') }} />
+  }
+
+  if (!session.cliente && !showOnboarding) {
+    return <LoginPage onLogin={() => setShowOnboarding(true)} onEngineerLogin={() => { saveRole('engenheiro'); setRole('engenheiro') }} />
+  }
+
   if (!session.cliente) return <OnboardingForm onSubmit={handleOnboarding} />
 
   const selectedOrcamento = selectedId !== 'novo' && selectedId !== 'historico'

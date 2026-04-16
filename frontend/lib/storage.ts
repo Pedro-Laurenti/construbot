@@ -1,4 +1,5 @@
-import type { AppSession } from '@/types'
+import type { AppSession, UserRole, EngineerData } from '@/types'
+import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS } from './mockData'
 
 const STORAGE_KEY = 'construbot_v2'
 
@@ -27,4 +28,46 @@ export function saveStorage(session: AppSession): void {
 export function clearStorage(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(STORAGE_KEY)
+}
+
+const ROLE_KEY = 'construbot_role'
+const ENGINEER_KEY = 'construbot_engineer'
+
+export function loadRole(): UserRole {
+  if (typeof window === 'undefined') return 'cliente'
+  return (localStorage.getItem(ROLE_KEY) as UserRole) ?? 'cliente'
+}
+
+export function saveRole(role: UserRole): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(ROLE_KEY, role)
+}
+
+function defaultEngineerData(): EngineerData {
+  return {
+    globalParams: GLOBAL_PARAMS,
+    gruposEncargos: DEFAULT_GRUPOS_ENCARGOS,
+    precificadorItens: [],
+    calculoMOConfigs: {},
+    calculoMOResults: {},
+    calculoMatConfigs: {},
+    orcamentoReviews: {},
+    uf: 'SP',
+  }
+}
+
+export function loadEngineerData(): EngineerData {
+  if (typeof window === 'undefined') return defaultEngineerData()
+  try {
+    const raw = localStorage.getItem(ENGINEER_KEY)
+    if (!raw) return defaultEngineerData()
+    return { ...defaultEngineerData(), ...JSON.parse(raw) } as EngineerData
+  } catch {
+    return defaultEngineerData()
+  }
+}
+
+export function saveEngineerData(data: EngineerData): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(ENGINEER_KEY, JSON.stringify(data))
 }
