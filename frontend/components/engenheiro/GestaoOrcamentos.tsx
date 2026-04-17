@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { saveStorage, loadStorage } from '@/lib/storage'
 import { formatDate } from '@/lib/formatters'
-import type { EngineerData, Orcamento, OrcamentoReviewStatus } from '@/types'
-import { MdCheckCircle, MdCancel, MdOpenInNew } from 'react-icons/md'
+import { PLANTAS_PADRAO } from '@/lib/mockData'
+import type { EngineerData, Orcamento, OrcamentoReviewStatus, OrcamentoStatus } from '@/types'
+import { MdCheckCircle, MdCancel, MdOpenInNew, MdPlayArrow, MdArrowForward } from 'react-icons/md'
 
 interface Props { data: EngineerData; onUpdate: (p: Partial<EngineerData>) => void; orcamentos: Orcamento[] }
 
@@ -23,10 +24,13 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos }: Props) 
     if (selected?.id === orcId) setSelected(null)
   }
 
-  const STATUS_BADGE: Record<OrcamentoReviewStatus['status'], string> = {
-    pendente: 'badge-warning',
-    aprovado: 'badge-success',
-    rejeitado: 'badge-error',
+  const ORC_STATUS_BADGE: Record<OrcamentoStatus, { className: string; label: string }> = {
+    aguardando_engenheiro: { className: 'badge-warning', label: 'Aguardando' },
+    em_calculo: { className: 'badge-info', label: 'Em análise' },
+    calculado: { className: 'badge-success', label: 'Calculado' },
+    entregue: { className: 'badge-accent', label: 'Entregue' },
+    rascunho: { className: 'badge-ghost', label: 'Rascunho' },
+    enviado: { className: 'badge-info', label: 'Enviado' },
   }
 
   return (
@@ -39,25 +43,34 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos }: Props) 
       <div className="card bg-base-100 shadow overflow-x-auto">
         <table className="table table-sm">
           <thead>
-            <tr><th>ID</th><th>Data</th><th>UF</th><th>Serviços</th><th>Status Cálculo</th><th>Revisão</th><th>Ações</th></tr>
+            <tr><th>ID</th><th>Data</th><th>UF</th><th>Serviços</th><th>Status</th><th>Etapa</th><th>Ações</th></tr>
           </thead>
           <tbody>
             {orcamentos.length === 0 && (
               <tr><td colSpan={7} className="text-center text-base-content/40 py-8">Nenhum orçamento de clientes encontrado.</td></tr>
             )}
             {orcamentos.map(orc => {
-              const review = getReview(orc.id)
+              const badge = ORC_STATUS_BADGE[orc.status]
+              const etapa = data.orcamentosEngenheiro[orc.id]?.etapaAtual ?? '-'
               return (
                 <tr key={orc.id} className="hover">
                   <td className="font-mono text-xs">{orc.id.slice(0, 14)}...</td>
                   <td className="text-xs">{formatDate(orc.dataCriacao)}</td>
                   <td className="text-xs">{orc.uf}</td>
                   <td className="text-xs">{orc.itens.length}</td>
-                  <td><span className={`badge badge-xs ${orc.status === 'calculado' ? 'badge-success' : 'badge-ghost'}`}>{orc.status}</span></td>
-                  <td><span className={`badge badge-xs ${STATUS_BADGE[review.status]}`}>{review.status}</span></td>
+                  <td><span className={`badge badge-xs ${badge.className}`}>{badge.label}</span></td>
+                  <td className="text-xs font-mono">{etapa}</td>
                   <td>
                     <div className="flex gap-1">
-                      <button onClick={() => { setSelected(orc); setObs(getReview(orc.id).observacoes) }} className="btn btn-ghost btn-xs" title="Abrir"><MdOpenInNew size={14} /></button>
+                      {orc.status === 'aguardando_engenheiro' && (
+                        <button className="btn btn-ghost btn-xs text-info" title="Iniciar"><MdPlayArrow size={14} /></button>
+                      )}
+                      {orc.status === 'em_calculo' && (
+                        <button className="btn btn-ghost btn-xs text-info" title="Continuar"><MdArrowForward size={14} /></button>
+                      )}
+                      {orc.status === 'entregue' && (
+                        <button onClick={() => { setSelected(orc); setObs(getReview(orc.id).observacoes) }} className="btn btn-ghost btn-xs" title="Ver"><MdOpenInNew size={14} /></button>
+                      )}
                       <button onClick={() => { setObs(getReview(orc.id).observacoes); updateReview(orc.id, 'aprovado') }} className="btn btn-ghost btn-xs text-success" title="Aprovar"><MdCheckCircle size={14} /></button>
                       <button onClick={() => { setObs(getReview(orc.id).observacoes); updateReview(orc.id, 'rejeitado') }} className="btn btn-ghost btn-xs text-error" title="Rejeitar"><MdCancel size={14} /></button>
                     </div>
@@ -79,8 +92,32 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos }: Props) 
             <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
               <div><p className="text-xs text-base-content/50">UF</p><p className="font-semibold">{selected.uf}</p></div>
               <div><p className="text-xs text-base-content/50">Data</p><p className="font-semibold">{formatDate(selected.dataCriacao)}</p></div>
-              <div><p className="text-xs text-base-content/50">Status</p><p className="font-semibold">{selected.status}</p></div>
+              <div><p className="text-xs text-base-content/50">Status</p><p className="font-semibold">{ORC_STATUS_BADGE[selected.status].label}</p></div>
             </div>
+            {selected.parametros && (
+              <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
+                <div>
+                  <p className="text-xs text-base-content/50">Planta</p>
+                  <p className="font-semibold">{PLANTAS_PADRAO.find(p => p.id === selected.parametros!.plantaId)?.nome ?? selected.parametros.plantaId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-base-content/50">Quartos</p>
+                  <p className="font-semibold">{selected.parametros.quartos}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-base-content/50">Terreno</p>
+                  <p className="font-semibold">{selected.parametros.terreno.municipio} — {selected.parametros.terreno.areaTotalM2} m2</p>
+                </div>
+                <div>
+                  <p className="text-xs text-base-content/50">Opcionais</p>
+                  <p className="font-semibold">{selected.parametros.opcionais.filter(o => o.selecionado).length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-base-content/50">Personalizações</p>
+                  <p className="font-semibold">{selected.parametros.personalizacoes.length}</p>
+                </div>
+              </div>
+            )}
             <table className="table table-xs mb-4">
               <thead><tr><th>Serviço</th><th>Sub-tipo</th><th className="text-right">Qtd.</th><th>UN</th><th>Modalidade</th></tr></thead>
               <tbody>

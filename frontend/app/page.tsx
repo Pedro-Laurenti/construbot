@@ -4,20 +4,19 @@ import { useState, useEffect } from 'react'
 import { fetchWithAuth } from '@/lib/api'
 import { loadStorage, saveStorage, clearStorage, loadRole, saveRole } from '@/lib/storage'
 import { SEED_CLIENTE, SEED_ORCAMENTO } from '@/lib/mockData'
-import LoginPage from '@/components/LoginPage'
 import OnboardingForm from '@/components/OnboardingForm'
 import Sidebar from '@/components/Sidebar'
 import OrcamentoChatFlow from '@/components/OrcamentoChatFlow'
 import ResultadoOrcamento from '@/components/ResultadoOrcamento'
 import EngineerApp from '@/components/engenheiro/EngineerApp'
 import { MdSmartToy, MdApartment, MdHistory } from 'react-icons/md'
-import { formatDate } from '@/lib/formatters'
-import type { AppSession, Cliente, Orcamento, UserRole } from '@/types'
+import { formatDate, formatCurrency } from '@/lib/formatters'
+import EntregaResultado from '@/components/EntregaResultado'
+import type { AppSession, Cliente, Orcamento, UserRole, ModalidadeFinanciamento } from '@/types'
 
 export default function Home() {
   const [session, setSession] = useState<AppSession | null>(null)
   const [role, setRole] = useState<UserRole>('cliente')
-  const [showOnboarding, setShowOnboarding] = useState(false)
   const [selectedId, setSelectedId] = useState<string>('novo')
   const [apiStatus, setApiStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
@@ -68,7 +67,6 @@ export default function Home() {
   function handleLogout() {
     clearStorage()
     setSession({ cliente: null, orcamentos: [], orcamentoAtivo: null })
-    setShowOnboarding(false)
   }
 
   if (!session) return null
@@ -77,21 +75,24 @@ export default function Home() {
     return <EngineerApp onLogout={() => { saveRole('cliente'); setRole('cliente') }} />
   }
 
-  if (!session.cliente && !showOnboarding) {
-    return <LoginPage onLogin={() => setShowOnboarding(true)} onEngineerLogin={() => { saveRole('engenheiro'); setRole('engenheiro') }} />
+  if (!session.cliente) {
+    return (
+      <OnboardingForm
+        onSubmit={handleOnboarding}
+        onEngineerLogin={() => { saveRole('engenheiro'); setRole('engenheiro') }}
+      />
+    )
   }
-
-  if (!session.cliente) return <OnboardingForm onSubmit={handleOnboarding} />
 
   const selectedOrcamento = selectedId !== 'novo' && selectedId !== 'historico'
     ? session.orcamentos.find(o => o.id === selectedId)
     : null
 
   const chatHeader = selectedOrcamento
-    ? { name: `Cotação — ${selectedOrcamento.uf}`, sub: `${selectedOrcamento.itens.length} serviço(s)`, icon: <MdApartment size={22} />, bg: 'bg-accent' }
+    ? { name: selectedOrcamento.nome || `Orçamento — ${selectedOrcamento.uf}`, sub: `${selectedOrcamento.uf} · ${selectedOrcamento.status}`, icon: <MdApartment size={22} />, bg: 'bg-accent' }
     : selectedId === 'historico'
       ? { name: 'Meus Orçamentos', sub: `${session.orcamentos.length} salvo(s)`, icon: <MdHistory size={22} />, bg: 'bg-warning' }
-      : { name: 'Ana — ConstruBot', sub: 'online', icon: <MdSmartToy size={22} />, bg: 'bg-info' }
+      : { name: 'Ana - ConstruBot', sub: 'Assistente de projetos', icon: <MdSmartToy size={22} />, bg: 'bg-info' }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -119,11 +120,64 @@ export default function Home() {
         <div className="flex-1 overflow-hidden">
           {selectedOrcamento ? (
             <div className="h-full overflow-y-auto">
-              <ResultadoOrcamento
-                orcamento={selectedOrcamento}
-                onBack={() => setSelectedId('historico')}
-                isSaved
-              />
+              {selectedOrcamento.status === 'entregue' && selectedOrcamento.saida ? (
+                <EntregaResultado
+                  saida={selectedOrcamento.saida}
+                  modalidade={selectedOrcamento.parametros?.modalidadeFinanciamento ?? 'SBPE'}
+                  onBack={() => setSelectedId('historico')}
+                />
+              ) : selectedOrcamento.status === 'aguardando_engenheiro' ? (
+                <div className="flex flex-col items-center justify-center h-full gap-6 px-6">
+                  {selectedOrcamento.faixaCotacao ? (
+                    <div className="max-w-lg w-full flex flex-col items-center gap-5">
+                      <div className="card bg-primary/10 border border-primary/30 w-full">
+                        <div className="card-body items-center text-center gap-2 p-6">
+                          <p className="text-sm text-base-content/60 font-medium">Faixa Estimada do Projeto</p>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-bold text-success">{formatCurrency(selectedOrcamento.faixaCotacao.minimo)}</span>
+                            <span className="text-base-content/40 text-sm">a</span>
+                            <span className="text-2xl font-bold text-error">{formatCurrency(selectedOrcamento.faixaCotacao.maximo)}</span>
+                          </div>
+                          <p className="text-xs text-base-content/40 mt-1">
+                            {selectedOrcamento.faixaCotacao.areaConstruidaM2 > 0 &&
+                              `${selectedOrcamento.faixaCotacao.areaConstruidaM2} m² · `}
+                            {selectedOrcamento.faixaCotacao.tempoObraMeses} meses de obra · BDI 20% incluso
+                          </p>
+                        </div>
+                      </div>
+                      <div className="card bg-base-100 border border-base-300 w-full">
+                        <div className="card-body p-4 text-sm text-base-content/60 leading-relaxed">
+                          <p className="font-semibold text-base-content text-sm">Por que uma faixa de preço?</p>
+                          <p>O valor final depende de decisões técnicas que o engenheiro fará para otimizar o custo da sua obra:</p>
+                          <ul className="list-disc list-inside space-y-1 text-xs">
+                            <li>Estratégia de contratação (MEI ou CLT)</li>
+                            <li>Dimensionamento e produtividade das equipes</li>
+                            <li>Negociação de materiais por região</li>
+                            <li>Distribuição do fluxo de caixa ao longo da obra</li>
+                          </ul>
+                          <p className="text-xs mt-1">O engenheiro busca a melhor economia para você — e a construtora também sai ganhando com equipes mais produtivas.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-base-content/40">
+                        <div className="loading loading-dots loading-sm" />
+                        <p className="text-xs">Aguardando análise detalhada do engenheiro</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="loading loading-dots loading-lg text-primary" />
+                      <p className="text-base-content/50 text-sm">Aguardando análise do engenheiro</p>
+                      <p className="text-base-content/30 text-xs">Você será notificado quando o resultado estiver pronto</p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <ResultadoOrcamento
+                  orcamento={selectedOrcamento}
+                  onBack={() => setSelectedId('historico')}
+                  isSaved
+                />
+              )}
             </div>
           ) : selectedId === 'historico' ? (
             <div className="h-full overflow-y-auto p-6">
@@ -140,8 +194,8 @@ export default function Home() {
                           <MdApartment size={22} className="text-accent-content" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm">Cotação — {orc.uf}</p>
-                          <p className="text-base-content/50 text-xs">{orc.itens.length} serviço(s) · {formatDate(orc.dataCriacao)}</p>
+                          <p className="font-semibold text-sm">{orc.nome || `Orçamento — ${orc.uf}`}</p>
+                          <p className="text-base-content/50 text-xs">{orc.uf} · {formatDate(orc.dataCriacao)}</p>
                         </div>
                         <span className={`badge badge-sm flex-shrink-0 ${orc.status === 'calculado' ? 'badge-success' : 'badge-ghost'}`}>{orc.status}</span>
                       </div>

@@ -1,22 +1,45 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdInventory, MdSummarize, MdFolderOpen, MdLogout, MdMoreVert, MdApartment } from 'react-icons/md'
+import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdInventory, MdSummarize, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdFormatListNumbered, MdPriceCheck, MdHomeWork } from 'react-icons/md'
 
-type EngineerModule = 'painel' | 'parametros' | 'sinapi' | 'consulta' | 'composicoes-analiticas' | 'composicoes-profissionais' | 'precificador' | 'calculadora-mo' | 'calculadora-mat' | 'consolidacao' | 'orcamentos'
+type EngineerModule = 'painel' | 'parametros' | 'quantitativos' | 'consulta' | 'calculadora-mo' | 'calculadora-mat' | 'precificacao-final' | 'sinapi' | 'composicoes-analiticas' | 'composicoes-profissionais' | 'precificador' | 'consolidacao' | 'orcamentos' | 'gestao-plantas'
 
-const NAV_ITEMS: { id: EngineerModule; label: string; sub: string; icon: React.ReactNode }[] = [
-  { id: 'painel', label: 'Painel Geral', sub: 'Dashboard', icon: <MdDashboard size={20} /> },
-  { id: 'parametros', label: 'Parâmetros Globais', sub: 'BDI, encargos e salários', icon: <MdSettings size={20} /> },
-  { id: 'sinapi', label: 'SINAPI — Insumos (ISE)', sub: 'Tabela de preços por UF', icon: <MdTableChart size={20} /> },
-  { id: 'consulta', label: 'Consulta SINAPI', sub: 'Composição com custo', icon: <MdSearch size={20} /> },
-  { id: 'composicoes-analiticas', label: 'Composições Analíticas', sub: 'Hierarquia 3 níveis', icon: <MdAccountTree size={20} /> },
-  { id: 'composicoes-profissionais', label: 'Composições Profissionais', sub: 'Produtividade e hidráulica', icon: <MdPeople size={20} /> },
-  { id: 'precificador', label: 'Precificador', sub: '12 tipos de serviço', icon: <MdInventory size={20} /> },
-  { id: 'calculadora-mo', label: 'Calculadora — MO', sub: '3 cenários + bônus', icon: <MdCalculate size={20} /> },
-  { id: 'calculadora-mat', label: 'Calculadora — Materiais', sub: 'Insumos por serviço', icon: <MdEngineering size={20} /> },
-  { id: 'consolidacao', label: 'Consolidação', sub: 'Totais + BDI + exportar', icon: <MdSummarize size={20} /> },
-  { id: 'orcamentos', label: 'Orçamentos', sub: 'Gestão de clientes', icon: <MdFolderOpen size={20} /> },
+interface NavSection {
+  title: string
+  items: { id: EngineerModule; label: string; sub: string; icon: React.ReactNode }[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'ETAPAS DO ORÇAMENTO',
+    items: [
+      { id: 'parametros', label: 'E1 Parâmetros Globais', sub: 'BDI, encargos e INCC', icon: <MdSettings size={20} /> },
+      { id: 'quantitativos', label: 'E2 Quantitativos', sub: 'Serviços da planta', icon: <MdFormatListNumbered size={20} /> },
+      { id: 'consulta', label: 'E3 Composições SINAPI', sub: 'Consulta com custo', icon: <MdSearch size={20} /> },
+      { id: 'calculadora-mo', label: 'E4 Cálculo MO', sub: '3 cenários + bônus', icon: <MdCalculate size={20} /> },
+      { id: 'calculadora-mat', label: 'E5 Cálculo Materiais', sub: 'Insumos por serviço', icon: <MdEngineering size={20} /> },
+      { id: 'precificacao-final', label: 'E6 Precificação Final', sub: 'INCC + BDI + Price + AA', icon: <MdPriceCheck size={20} /> },
+    ],
+  },
+  {
+    title: 'FERRAMENTAS',
+    items: [
+      { id: 'sinapi', label: 'SINAPI - Insumos (ISE)', sub: 'Tabela de preços por UF', icon: <MdTableChart size={20} /> },
+      { id: 'composicoes-analiticas', label: 'Composições Analíticas', sub: 'Hierarquia 3 níveis', icon: <MdAccountTree size={20} /> },
+      { id: 'composicoes-profissionais', label: 'Composições Profissionais', sub: 'Produtividade', icon: <MdPeople size={20} /> },
+      { id: 'gestao-plantas', label: 'Plantas Arquitetônicas', sub: 'Gerenciar plantas dos clientes', icon: <MdHomeWork size={20} /> },
+      { id: 'precificador', label: 'Precificador', sub: '12 tipos de serviço', icon: <MdInventory size={20} /> },
+      { id: 'consolidacao', label: 'Consolidação', sub: 'Totais + exportar', icon: <MdSummarize size={20} /> },
+    ],
+  },
+  {
+    title: 'GESTÃO',
+    items: [
+      { id: 'painel', label: 'Painel Geral', sub: 'Dashboard', icon: <MdDashboard size={20} /> },
+      { id: 'orcamentos', label: 'Orçamentos Clientes', sub: 'Iniciar, continuar, entregar', icon: <MdFolderOpen size={20} /> },
+    ],
+  },
 ]
 
 interface SidebarEngenheiroProps {
@@ -70,20 +93,25 @@ export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout }
       <div className="divider my-0 h-px" />
 
       <nav className="flex-1 overflow-y-auto py-1">
-        {NAV_ITEMS.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            className={`flex items-center gap-3 px-3 py-2.5 w-full text-left transition-colors ${activeModule === item.id ? 'bg-secondary text-secondary-content' : 'hover:bg-base-200'}`}
-          >
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeModule === item.id ? 'bg-secondary-content/20' : 'bg-base-300'}`}>
-              {item.icon}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{item.label}</p>
-              <p className="text-xs opacity-50 truncate">{item.sub}</p>
-            </div>
-          </button>
+        {NAV_SECTIONS.map(section => (
+          <div key={section.title}>
+            <p className="text-xs font-bold text-base-content/30 uppercase tracking-wider px-4 pt-4 pb-1">{section.title}</p>
+            {section.items.map(item => (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={`flex items-center gap-3 px-3 py-2.5 w-full text-left transition-colors ${activeModule === item.id ? 'bg-secondary text-secondary-content' : 'hover:bg-base-200'}`}
+              >
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeModule === item.id ? 'bg-secondary-content/20' : 'bg-base-300'}`}>
+                  {item.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{item.label}</p>
+                  <p className="text-xs opacity-50 truncate">{item.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
 

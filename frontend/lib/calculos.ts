@@ -1,5 +1,5 @@
 import { GLOBAL_PARAMS, SERVICE_CONFIG } from './mockData'
-import type { OrcamentoItem, ItemResultado, CenarioEquipe, OrcamentoTotais, Orcamento, InsumoItem, CalculoMOConfig, CalculoMOResultado, CenarioDetalhadoMO, CalculoMatConfig, OrcamentoConsolidado } from '@/types'
+import type { OrcamentoItem, ItemResultado, CenarioEquipe, OrcamentoTotais, Orcamento, InsumoItem, CalculoMOConfig, CalculoMOResultado, CenarioDetalhadoMO, CalculoMatConfig, OrcamentoConsolidado, AporteMensal, ModalidadeFinanciamento, FluxoCaixaMensal, QuantitativoServico, ParametrosCliente, PlantaPadrao, OpcionalItem, FaixaCotacao, GlobalParams } from '@/types'
 
 export function calcularItem(item: OrcamentoItem): ItemResultado {
   const p = GLOBAL_PARAMS
@@ -203,3 +203,141 @@ export function consolidarEngenheiro(
 }
 
 export { VH_QUAL_COM, VH_SERV_COM, VH_QUAL_SEM, VH_SERV_SEM }
+
+export function calcularParcelaPrice(
+  valorFinanciado: number,
+  taxaJurosAnual: number,
+  prazoMeses: number,
+): number {
+  const taxaMensal = Math.pow(1 + taxaJurosAnual, 1 / 12) - 1
+  if (taxaMensal === 0) return valorFinanciado / prazoMeses
+  const fator = Math.pow(1 + taxaMensal, prazoMeses)
+  return valorFinanciado * (taxaMensal * fator) / (fator - 1)
+}
+
+export function calcularAporteMinimo(precoFinal: number, percentualFinanciavel: number): number {
+  return precoFinal * (1 - percentualFinanciavel)
+}
+
+export function calcularTabelaAportes(
+  precoFinal: number,
+  percentualFinanciavel: number,
+  tempoObraMeses: number,
+  modalidade: 'MCMV' | 'SBPE',
+): AporteMensal[] {
+  const valorFinanciado = precoFinal * percentualFinanciavel
+  const aa = precoFinal - valorFinanciado
+  const custoMensal = precoFinal / tempoObraMeses
+  const tabela: AporteMensal[] = []
+
+  if (modalidade === 'SBPE') {
+    const aporteFixo = aa / tempoObraMeses
+    for (let i = 1; i <= tempoObraMeses; i++) {
+      const repasse = custoMensal - aporteFixo
+      tabela.push({ mes: i, aporteRecursosProprios: aporteFixo, repasseFinanciamento: Math.max(0, repasse), desembolsoTotal: custoMensal })
+    }
+  } else {
+    const faseInicial = Math.ceil(tempoObraMeses * 0.3)
+    const aporteConcentrado = aa / faseInicial
+    for (let i = 1; i <= tempoObraMeses; i++) {
+      const aporte = i <= faseInicial ? aporteConcentrado : 0
+      const repasse = custoMensal - aporte
+      tabela.push({ mes: i, aporteRecursosProprios: Math.max(0, aporte), repasseFinanciamento: Math.max(0, repasse), desembolsoTotal: custoMensal })
+    }
+  }
+  return tabela
+}
+
+export function calcularFluxoCaixaINCC(
+  custoDireto: number,
+  tempoMeses: number,
+  inccMensal: number,
+  distribuicao?: number[],
+): { parcelas: FluxoCaixaMensal[]; totalCorrigido: number } {
+  const parcelas: FluxoCaixaMensal[] = []
+  let totalCorrigido = 0
+  for (let i = 0; i < tempoMeses; i++) {
+    const base = distribuicao && distribuicao.length === tempoMeses
+      ? custoDireto * distribuicao[i]
+      : custoDireto / tempoMeses
+    const fator = Math.pow(1 + inccMensal, i + 1)
+    const corrigido = base * fator
+    totalCorrigido += corrigido
+    parcelas.push({ mes: i + 1, custoParcela: base, custoParcelaCorrigido: corrigido, inccAcumulado: fator - 1 })
+  }
+  return { parcelas, totalCorrigido }
+}
+
+export function gerarQuantitativosFromParametros(
+  planta: PlantaPadrao,
+  opcionais: OpcionalItem[],
+): QuantitativoServico[] {
+  const quantitativos: QuantitativoServico[] = planta.servicos.map((s, i) => ({
+    id: `qtv-${planta.id}-${i}`,
+    serviceType: s.serviceType,
+    descricao: s.descricao,
+    unidade: s.unidade,
+    quantidade: s.quantidade,
+    especificacao1: s.especificacao1,
+    especificacao2: s.especificacao2,
+    especificacao3: s.especificacao3,
+    composicaoBasica: s.composicaoBasica,
+    composicaoProfissionalId: s.composicaoProfissionalId,
+    modalidade: 'MEI' as const,
+    origem: 'PLANTA_BASE' as const,
+  }))
+  for (const opc of opcionais.filter(o => o.selecionado)) {
+    for (const imp of opc.impactoServicos) {
+      if (imp.tipo === 'INCREMENTO' && imp.incrementoQuantidade) {
+        const existing = quantitativos.find(q => q.serviceType === imp.serviceType)
+        if (existing) existing.quantidade = Math.round(existing.quantidade * (1 + imp.incrementoQuantidade) * 100) / 100
+      }
+    }
+  }
+  return quantitativos
+}
+
+export function calcularFaixaCotacao(
+  quantitativos: QuantitativoServico[],
+  params: GlobalParams,
+  inccMensal: number,
+  tempoMeses: number,
+): FaixaCotacao {
+  const vhProfSem = params.salarioQualificado / (22 * 8)
+  const vhServSem = params.salarioServente / (22 * 8)
+  const vhProfCom = vhProfSem * params.fatorEncargos
+  const vhServCom = vhServSem * params.fatorEncargos
+
+  let custoMoMinimo = 0
+  let custoMoMaximo = 0
+  let custoMat = 0
+
+  for (const q of quantitativos) {
+    const cfg = SERVICE_CONFIG[q.serviceType]
+    if (!cfg) continue
+    const { prodBasica, propAjudante, materialUnitario } = cfg
+
+    const hhOtima = q.quantidade / (prodBasica * 1.25)
+    const hhAjudOtima = hhOtima * propAjudante
+    custoMoMinimo += hhOtima * vhProfSem * 1.3 + hhAjudOtima * vhServCom
+
+    const hhMensal = q.quantidade / (prodBasica * 0.80)
+    const hhAjudMensal = hhMensal * propAjudante
+    custoMoMaximo += hhMensal * vhProfCom + hhAjudMensal * vhServCom
+
+    custoMat += materialUnitario * q.quantidade
+  }
+
+  const cdMin = custoMoMinimo + custoMat
+  const cdMax = custoMoMaximo + custoMat
+
+  const { totalCorrigido: totalMin } = calcularFluxoCaixaINCC(cdMin, tempoMeses, inccMensal)
+  const { totalCorrigido: totalMax } = calcularFluxoCaixaINCC(cdMax, tempoMeses, inccMensal)
+
+  return {
+    minimo: Math.round(totalMin * (1 + params.bdi)),
+    maximo: Math.round(totalMax * (1 + params.bdi)),
+    areaConstruidaM2: quantitativos.reduce((s, q) => q.unidade === 'M2' ? Math.max(s, q.quantidade) : s, 0),
+    tempoObraMeses: tempoMeses,
+  }
+}

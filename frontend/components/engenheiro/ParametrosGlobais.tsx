@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS } from '@/lib/mockData'
+import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS, UF_LIST } from '@/lib/mockData'
 import type { EngineerData, GlobalParams, GruposEncargos, ItemGrupoEncargo } from '@/types'
 import { formatCurrency } from '@/lib/formatters'
 
@@ -172,6 +172,54 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
             <span className="font-mono font-bold text-lg">{totalGeral.toFixed(2)}%</span>
           </div>
           <p className="text-xs text-base-content/50 mt-1">Fator de encargos = 1 + Total/100 = {fatorEncargos.toFixed(4)}</p>
+        </div>
+      </div>
+
+      <div className="card bg-base-100 shadow">
+        <div className="card-body p-4 gap-4">
+          <p className="font-semibold">Referência e Correção</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend text-xs">UF de execução</legend>
+              <select value={data.uf} onChange={e => onUpdate({ uf: e.target.value })} className="select select-sm w-full">
+                {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+            </fieldset>
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend text-xs">Mês referência SINAPI</legend>
+              <input type="text" value={data.mesReferenciaSINAPI} onChange={e => onUpdate({ mesReferenciaSINAPI: e.target.value })} className="input input-sm w-full" />
+            </fieldset>
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend text-xs">INCC mensal projetado (%)</legend>
+              <input type="number" step="0.001" value={(data.inccMensal * 100).toFixed(1)} onChange={e => onUpdate({ inccMensal: (parseFloat(e.target.value) || 0.5) / 100 })} className="input input-sm w-full" />
+            </fieldset>
+          </div>
+        </div>
+      </div>
+
+      <div className="card bg-base-100 shadow">
+        <div className="card-body p-4 gap-4">
+          <p className="font-semibold">Condições de Financiamento Caixa</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-base-200 rounded p-3">
+              <p className="text-xs font-bold text-success mb-2">MCMV</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><p className="text-base-content/50">Taxa juros anual</p><p className="font-semibold">5,50%</p></div>
+                <div><p className="text-base-content/50">Prazo máximo</p><p className="font-semibold">420 meses (35 anos)</p></div>
+                <div><p className="text-base-content/50">% financiável</p><p className="font-semibold">80%</p></div>
+                <div><p className="text-base-content/50">Valor máximo</p><p className="font-semibold">{formatCurrency(600000)}</p></div>
+              </div>
+            </div>
+            <div className="bg-base-200 rounded p-3">
+              <p className="text-xs font-bold text-info mb-2">SBPE</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><p className="text-base-content/50">Taxa juros anual</p><p className="font-semibold">9,99%</p></div>
+                <div><p className="text-base-content/50">Prazo máximo</p><p className="font-semibold">420 meses (35 anos)</p></div>
+                <div><p className="text-base-content/50">% financiável</p><p className="font-semibold">80%</p></div>
+                <div><p className="text-base-content/50">Valor máximo</p><p className="font-semibold">{formatCurrency(1500000)}</p></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

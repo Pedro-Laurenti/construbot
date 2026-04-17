@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { MdApartment, MdHandyman, MdDescription, MdCalculate, MdArrowForward } from 'react-icons/md'
+import { MdApartment, MdHandyman, MdDescription, MdCalculate, MdArrowForward, MdEngineering } from 'react-icons/md'
 import { formatNationalPhone } from '@/lib/formatters'
+import { ENGINEER_PASSWORD } from '@/lib/mockData'
 import type { Cliente } from '@/types'
 
 interface Props {
   onSubmit: (cliente: Cliente) => void
+  onEngineerLogin?: () => void
 }
 
 const FEATURES = [
@@ -15,13 +17,27 @@ const FEATURES = [
   { icon: <MdDescription size={20} />, title: 'Histórico Completo', desc: 'Salve e consulte todos os orçamentos gerados.' },
 ]
 
-export default function OnboardingForm({ onSubmit }: Props) {
+export default function OnboardingForm({ onSubmit, onEngineerLogin }: Props) {
   const [tab, setTab] = useState<'manual' | 'google'>('manual')
   const [nome, setNome] = useState('')
   const [phoneDigits, setPhoneDigits] = useState('')
   const [email, setEmail] = useState('')
+  const [googlePrefill, setGooglePrefill] = useState<{ nome: string; email: string } | null>(null)
+  const [googlePhone, setGooglePhone] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showEngineerForm, setShowEngineerForm] = useState(false)
+  const [engPassword, setEngPassword] = useState('')
+  const [engError, setEngError] = useState('')
+
+  function handleEngineerAccess(e: React.FormEvent) {
+    e.preventDefault()
+    if (engPassword === ENGINEER_PASSWORD) {
+      onEngineerLogin?.()
+    } else {
+      setEngError('Senha incorreta.')
+    }
+  }
 
   const phoneValid = phoneDigits.length >= 10
 
@@ -54,17 +70,34 @@ export default function OnboardingForm({ onSubmit }: Props) {
   }
 
   function handleGoogleLogin() {
+    setGooglePrefill({ nome: 'Usuário Google', email: 'usuario@gmail.com' })
+  }
+
+  const googlePhoneValid = googlePhone.length >= 10
+
+  function handleGooglePhone(e: React.ChangeEvent<HTMLInputElement>) {
+    setGooglePhone(e.target.value.replace(/\D/g, '').slice(0, 11))
+  }
+
+  function handleGoogleComplete(e: React.FormEvent) {
+    e.preventDefault()
+    if (!googlePrefill) return
+    if (!googlePhoneValid) {
+      setError('Preencha todos os campos corretamente.')
+      return
+    }
+    setError('')
     setLoading(true)
     setTimeout(() => {
       setLoading(false)
       onSubmit({
         id: `cli-google-${Date.now()}`,
-        nome: 'Usuário Google',
-        telefone: '(11) 00000-0000',
-        email: 'usuario@gmail.com',
+        nome: googlePrefill.nome,
+        telefone: formatNationalPhone(googlePhone),
+        email: googlePrefill.email,
         dataCadastro: new Date().toISOString().slice(0, 10),
       })
-    }, 900)
+    }, 600)
   }
 
   return (
@@ -148,6 +181,36 @@ export default function OnboardingForm({ onSubmit }: Props) {
                   {loading ? <span className="loading loading-spinner loading-sm" /> : <><MdArrowForward size={18} /> Começar</>}
                 </button>
               </form>
+            ) : googlePrefill ? (
+              <form onSubmit={handleGoogleComplete} className="flex flex-col gap-4">
+                <div className="alert alert-info text-sm py-2">
+                  Conectado como <strong>{googlePrefill.nome}</strong> ({googlePrefill.email}). Complete seus dados.
+                </div>
+
+                <fieldset className="fieldset">
+                  <legend className="fieldset-legend">Telefone</legend>
+                  <div className="flex items-center border border-base-content/20 rounded-lg overflow-hidden bg-base-100">
+                    <span className="text-base-content/40 text-sm px-3 font-mono border-r border-base-content/20 select-none self-stretch flex items-center">+55</span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={formatNationalPhone(googlePhone)}
+                      onChange={handleGooglePhone}
+                      placeholder="(11) 98765-4321"
+                      className="input flex-1 border-none bg-transparent font-mono text-sm"
+                    />
+                  </div>
+                  {googlePhone.length > 0 && !googlePhoneValid && (
+                    <p className="label text-error text-xs">Faltam {10 - googlePhone.length} dígito(s)</p>
+                  )}
+                </fieldset>
+
+                {error && <div className="alert alert-error text-sm py-2">{error}</div>}
+
+                <button type="submit" disabled={loading} className="btn btn-primary w-full">
+                  {loading ? <span className="loading loading-spinner loading-sm" /> : <><MdArrowForward size={18} /> Começar</>}
+                </button>
+              </form>
             ) : (
               <div className="flex flex-col gap-4">
                 <p className="text-base-content/60 text-sm text-center leading-relaxed">
@@ -166,6 +229,46 @@ export default function OnboardingForm({ onSubmit }: Props) {
                 </button>
                 <p className="text-base-content/30 text-xs text-center">Demonstração — sem OAuth real</p>
               </div>
+            )}
+
+            {onEngineerLogin && (
+              <>
+                <div className="divider my-0" />
+                {showEngineerForm ? (
+                  <form onSubmit={handleEngineerAccess} className="flex flex-col gap-3">
+                    <fieldset className="fieldset">
+                      <legend className="fieldset-legend">Senha de acesso</legend>
+                      <input
+                        type="password"
+                        value={engPassword}
+                        onChange={e => { setEngPassword(e.target.value); setEngError('') }}
+                        placeholder="Senha do engenheiro"
+                        className={`input w-full ${engError ? 'input-error' : ''}`}
+                        autoFocus
+                      />
+                    </fieldset>
+                    {engError && <div className="alert alert-error py-2"><span className="text-xs">{engError}</span></div>}
+                    <button type="submit" className="btn btn-primary btn-sm w-full">
+                      <MdEngineering size={16} /> Entrar como Engenheiro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowEngineerForm(false); setEngError(''); setEngPassword('') }}
+                      className="link link-primary text-xs text-center"
+                    >
+                      Voltar ao cadastro
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowEngineerForm(true)}
+                    className="btn btn-ghost btn-sm gap-2 text-base-content/50 hover:text-base-content"
+                  >
+                    <MdEngineering size={16} /> Acesso Engenheiro
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

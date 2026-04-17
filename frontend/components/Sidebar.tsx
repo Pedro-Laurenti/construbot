@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { MdAdd, MdMoreVert, MdLogout, MdHistory } from 'react-icons/md'
-import type { Orcamento } from '@/types'
+import type { Orcamento, OrcamentoStatus } from '@/types'
 
 interface SidebarProps {
   orcamentos: Orcamento[]
@@ -10,6 +10,15 @@ interface SidebarProps {
   onSelect: (id: string) => void
   onLogout: () => void
   userName: string
+}
+
+const STATUS_BADGE: Record<OrcamentoStatus, { className: string; label: string }> = {
+  aguardando_engenheiro: { className: 'badge-warning', label: 'Aguardando' },
+  em_calculo: { className: 'badge-info', label: 'Em análise' },
+  entregue: { className: 'badge-success', label: 'Pronto' },
+  calculado: { className: 'badge-success', label: 'Calculado' },
+  rascunho: { className: 'badge-ghost', label: 'Rascunho' },
+  enviado: { className: 'badge-info', label: 'Enviado' },
 }
 
 export default function Sidebar({ orcamentos, selectedId, onSelect, onLogout, userName }: SidebarProps) {
@@ -69,8 +78,8 @@ export default function Sidebar({ orcamentos, selectedId, onSelect, onLogout, us
           <MdAdd size={24} className="text-primary-content" />
         </div>
         <div>
-          <p className="text-base-content font-medium text-sm">Nova Cotação</p>
-          <p className="text-base-content/40 text-xs">Iniciar novo orçamento</p>
+          <p className="text-base-content font-medium text-sm">Nova Consulta</p>
+          <p className="text-base-content/40 text-xs">Iniciar novo projeto</p>
         </div>
       </button>
 
@@ -94,6 +103,26 @@ export default function Sidebar({ orcamentos, selectedId, onSelect, onLogout, us
           <span className="badge badge-warning badge-sm flex-shrink-0">{orcamentos.length}</span>
         )}
       </button>
+
+      {orcamentos.length > 0 && (
+        <div className="flex-1 overflow-y-auto">
+          {orcamentos.map(orc => (
+            <button
+              key={orc.id}
+              onClick={() => onSelect(orc.id)}
+              className={`flex items-center justify-between px-4 py-2.5 w-full text-left transition-colors ${selectedId === orc.id ? 'bg-secondary' : 'hover:bg-base-200'}`}
+            >
+              <div className="min-w-0">
+                <p className="text-base-content text-sm font-medium truncate">{orc.nome || `Orçamento — ${orc.uf}`}</p>
+                <p className="text-base-content/40 text-xs">{orc.dataCriacao}</p>
+              </div>
+              <span className={`badge badge-sm flex-shrink-0 ${STATUS_BADGE[orc.status].className}`}>
+                {STATUS_BADGE[orc.status].label}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </aside>
   )
 }

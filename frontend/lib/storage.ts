@@ -1,5 +1,5 @@
 import type { AppSession, UserRole, EngineerData } from '@/types'
-import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS } from './mockData'
+import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS, PLANTAS_PADRAO } from './mockData'
 
 const STORAGE_KEY = 'construbot_v2'
 
@@ -53,6 +53,10 @@ function defaultEngineerData(): EngineerData {
     calculoMatConfigs: {},
     orcamentoReviews: {},
     uf: 'SP',
+    inccMensal: 0.005,
+    mesReferenciaSINAPI: 'Janeiro/2026',
+    orcamentosEngenheiro: {},
+    plantas: PLANTAS_PADRAO,
   }
 }
 

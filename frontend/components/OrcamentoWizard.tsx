@@ -54,6 +54,7 @@ export default function OrcamentoWizard({ clienteId, onComplete }: Props) {
   function handleCalcular() {
     onComplete({
       id: `orc-${Date.now()}`,
+      nome: `Orçamento — ${uf}`,
       clienteId,
       dataCriacao: new Date().toISOString().slice(0, 10),
       status: 'rascunho',

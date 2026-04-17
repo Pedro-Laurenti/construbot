@@ -1,4 +1,4 @@
-import type { GlobalParams, ServiceType, Cliente, Orcamento, GruposEncargos, InsumoSINAPI, ComposicaoAnalitica, ComposicaoProfissional, PontoHidraulico } from '@/types'
+import type { GlobalParams, ServiceType, Cliente, Orcamento, GruposEncargos, InsumoSINAPI, ComposicaoAnalitica, ComposicaoProfissional, PontoHidraulico, PlantaPadrao, OpcionalItem, ImpactoOpcional, CondicoesFinanciamento, ModalidadeFinanciamento, FaseObra } from '@/types'
 
 export const GLOBAL_PARAMS: GlobalParams = {
   bdi: 0.20,
@@ -134,6 +134,7 @@ export const SEED_CLIENTE: Cliente = {
 
 export const SEED_ORCAMENTO: Orcamento = {
   id: 'demo-orc-001',
+  nome: 'Casa Demo',
   clienteId: 'demo-001',
   dataCriacao: '2026-01-15',
   status: 'rascunho',
@@ -340,4 +341,127 @@ export const PONTOS_HIDRAULICOS: PontoHidraulico[] = [
     { descricao: 'Registro de gaveta 3/4"', unidade: 'UN', quantidade: 1 },
     { descricao: 'Adaptador curto PVC 25mm', unidade: 'UN', quantidade: 2 },
   ]},
+]
+
+export const PLANTAS_PADRAO: PlantaPadrao[] = [
+  {
+    id: 'planta-1q-36', nome: 'Kitnet 1Q', quartos: 1, areaConstruidaM2: 36, tempoObraMeses: 4,
+    descricao: 'Kitnet térrea com 1 quarto, sala/cozinha integrada e banheiro',
+    compatibilidadeTerreno: { areaMinima: 100, frenteMinima: 6 },
+    servicos: [
+      { serviceType: 'FUNDACAO', descricao: 'Fundação Sapata Corrida', unidade: 'M3', quantidade: 3.0, especificacao1: 'Sapata Corrida', especificacao2: '', especificacao3: '', composicaoBasica: '104924', composicaoProfissionalId: 38 },
+      { serviceType: 'ALVENARIA', descricao: 'Alvenaria Estrutural', unidade: 'M2', quantidade: 120, especificacao1: 'Alvenaria Estrutural', especificacao2: 'Módulo 15 - Vertical', especificacao3: 'Concreto', composicaoBasica: '89288', composicaoProfissionalId: 15 },
+      { serviceType: 'GRAUTE', descricao: 'Grauteamento Vertical', unidade: 'M3', quantidade: 1.8, especificacao1: 'Vertical', especificacao2: '', especificacao3: '', composicaoBasica: '89993', composicaoProfissionalId: 21 },
+      { serviceType: 'CONTRAPISO', descricao: 'Contrapiso Farofa 2cm', unidade: 'M2', quantidade: 36, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '87622', composicaoProfissionalId: 41 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_PAREDE', descricao: 'Gesso Liso Paredes', unidade: 'M2', quantidade: 150, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87421', composicaoProfissionalId: 39 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_TETO', descricao: 'Gesso Liso Teto', unidade: 'M2', quantidade: 36, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87414', composicaoProfissionalId: 40 },
+      { serviceType: 'REVESTIMENTO_CERAMICO', descricao: 'Porcelanato Piso 60x60', unidade: 'M2', quantidade: 30, especificacao1: 'Piso Interno', especificacao2: 'Porcelanato até 60x60', especificacao3: '', composicaoBasica: '87263', composicaoProfissionalId: 11 },
+      { serviceType: 'PINTURA_INTERNA', descricao: 'Pintura Interna', unidade: 'M2', quantidade: 186, especificacao1: 'Tinta Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88489', composicaoProfissionalId: 10 },
+      { serviceType: 'PINTURA_EXTERNA', descricao: 'Pintura Externa Textura', unidade: 'M2', quantidade: 65, especificacao1: 'Textura Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88423', composicaoProfissionalId: 3 },
+      { serviceType: 'LIMPEZA_INTERNA', descricao: 'Limpeza Final', unidade: 'M2', quantidade: 36, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '', composicaoProfissionalId: 0 },
+    ],
+  },
+  {
+    id: 'planta-2q-48', nome: 'Casa Compacta 2Q', quartos: 2, areaConstruidaM2: 48, tempoObraMeses: 6,
+    descricao: 'Casa térrea compacta com 2 quartos, sala, cozinha, banheiro e área de serviço',
+    compatibilidadeTerreno: { areaMinima: 150, frenteMinima: 8 },
+    servicos: [
+      { serviceType: 'FUNDACAO', descricao: 'Fundação Sapata Corrida', unidade: 'M3', quantidade: 4.5, especificacao1: 'Sapata Corrida', especificacao2: '', especificacao3: '', composicaoBasica: '104924', composicaoProfissionalId: 38 },
+      { serviceType: 'ALVENARIA', descricao: 'Alvenaria Estrutural', unidade: 'M2', quantidade: 180, especificacao1: 'Alvenaria Estrutural', especificacao2: 'Módulo 15 - Vertical', especificacao3: 'Concreto', composicaoBasica: '89288', composicaoProfissionalId: 15 },
+      { serviceType: 'GRAUTE', descricao: 'Grauteamento Vertical', unidade: 'M3', quantidade: 2.8, especificacao1: 'Vertical', especificacao2: '', especificacao3: '', composicaoBasica: '89993', composicaoProfissionalId: 21 },
+      { serviceType: 'CONTRAPISO', descricao: 'Contrapiso Farofa 2cm', unidade: 'M2', quantidade: 48, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '87622', composicaoProfissionalId: 41 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_PAREDE', descricao: 'Gesso Liso Paredes', unidade: 'M2', quantidade: 220, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87421', composicaoProfissionalId: 39 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_TETO', descricao: 'Gesso Liso Teto', unidade: 'M2', quantidade: 48, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87414', composicaoProfissionalId: 40 },
+      { serviceType: 'REVESTIMENTO_CERAMICO', descricao: 'Porcelanato Piso 60x60', unidade: 'M2', quantidade: 42, especificacao1: 'Piso Interno', especificacao2: 'Porcelanato até 60x60', especificacao3: '', composicaoBasica: '87263', composicaoProfissionalId: 11 },
+      { serviceType: 'PINTURA_INTERNA', descricao: 'Pintura Interna', unidade: 'M2', quantidade: 268, especificacao1: 'Tinta Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88489', composicaoProfissionalId: 10 },
+      { serviceType: 'PINTURA_EXTERNA', descricao: 'Pintura Externa Textura', unidade: 'M2', quantidade: 95, especificacao1: 'Textura Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88423', composicaoProfissionalId: 3 },
+      { serviceType: 'LIMPEZA_INTERNA', descricao: 'Limpeza Final', unidade: 'M2', quantidade: 48, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '', composicaoProfissionalId: 0 },
+    ],
+  },
+  {
+    id: 'planta-3q-72', nome: 'Casa Padrão 3Q', quartos: 3, areaConstruidaM2: 72, tempoObraMeses: 8,
+    descricao: 'Casa térrea com 3 quartos, sala ampla, cozinha americana, 2 banheiros e garagem',
+    compatibilidadeTerreno: { areaMinima: 200, frenteMinima: 10 },
+    servicos: [
+      { serviceType: 'FUNDACAO', descricao: 'Fundação Sapata Corrida', unidade: 'M3', quantidade: 6.2, especificacao1: 'Sapata Corrida', especificacao2: '', especificacao3: '', composicaoBasica: '104924', composicaoProfissionalId: 38 },
+      { serviceType: 'ALVENARIA', descricao: 'Alvenaria Estrutural', unidade: 'M2', quantidade: 260, especificacao1: 'Alvenaria Estrutural', especificacao2: 'Módulo 15 - Vertical', especificacao3: 'Concreto', composicaoBasica: '89288', composicaoProfissionalId: 15 },
+      { serviceType: 'GRAUTE', descricao: 'Grauteamento Vertical', unidade: 'M3', quantidade: 3.8, especificacao1: 'Vertical', especificacao2: '', especificacao3: '', composicaoBasica: '89993', composicaoProfissionalId: 21 },
+      { serviceType: 'CONTRAPISO', descricao: 'Contrapiso Farofa 2cm', unidade: 'M2', quantidade: 72, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '87622', composicaoProfissionalId: 41 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_PAREDE', descricao: 'Gesso Liso Paredes', unidade: 'M2', quantidade: 340, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87421', composicaoProfissionalId: 39 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_TETO', descricao: 'Gesso Liso Teto', unidade: 'M2', quantidade: 72, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87414', composicaoProfissionalId: 40 },
+      { serviceType: 'REVESTIMENTO_CERAMICO', descricao: 'Porcelanato Piso 60x60', unidade: 'M2', quantidade: 62, especificacao1: 'Piso Interno', especificacao2: 'Porcelanato até 60x60', especificacao3: '', composicaoBasica: '87263', composicaoProfissionalId: 11 },
+      { serviceType: 'PINTURA_INTERNA', descricao: 'Pintura Interna', unidade: 'M2', quantidade: 412, especificacao1: 'Tinta Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88489', composicaoProfissionalId: 10 },
+      { serviceType: 'PINTURA_EXTERNA', descricao: 'Pintura Externa Textura', unidade: 'M2', quantidade: 140, especificacao1: 'Textura Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88423', composicaoProfissionalId: 3 },
+      { serviceType: 'LIMPEZA_INTERNA', descricao: 'Limpeza Final', unidade: 'M2', quantidade: 72, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '', composicaoProfissionalId: 0 },
+    ],
+  },
+  {
+    id: 'planta-3q-90', nome: 'Casa Conforto 3Q', quartos: 3, areaConstruidaM2: 90, tempoObraMeses: 10,
+    descricao: 'Casa térrea ampla com 3 quartos (1 suíte), sala, cozinha, área gourmet e garagem dupla',
+    compatibilidadeTerreno: { areaMinima: 250, frenteMinima: 12 },
+    servicos: [
+      { serviceType: 'FUNDACAO', descricao: 'Fundação Radier', unidade: 'M3', quantidade: 9.0, especificacao1: 'Radier', especificacao2: '', especificacao3: '', composicaoBasica: '97096', composicaoProfissionalId: 37 },
+      { serviceType: 'ALVENARIA', descricao: 'Alvenaria Estrutural', unidade: 'M2', quantidade: 320, especificacao1: 'Alvenaria Estrutural', especificacao2: 'Módulo 20 - Vertical/Horizontal', especificacao3: 'Concreto', composicaoBasica: '89288', composicaoProfissionalId: 15 },
+      { serviceType: 'GRAUTE', descricao: 'Grauteamento Vertical', unidade: 'M3', quantidade: 4.5, especificacao1: 'Vertical', especificacao2: '', especificacao3: '', composicaoBasica: '89993', composicaoProfissionalId: 21 },
+      { serviceType: 'CONTRAPISO', descricao: 'Contrapiso Farofa 2cm', unidade: 'M2', quantidade: 90, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '87622', composicaoProfissionalId: 41 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_PAREDE', descricao: 'Gesso Liso Paredes', unidade: 'M2', quantidade: 420, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87421', composicaoProfissionalId: 39 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_TETO', descricao: 'Gesso Liso Teto', unidade: 'M2', quantidade: 90, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87414', composicaoProfissionalId: 40 },
+      { serviceType: 'REVESTIMENTO_CERAMICO', descricao: 'Porcelanato Piso 60x60', unidade: 'M2', quantidade: 78, especificacao1: 'Piso Interno', especificacao2: 'Porcelanato até 60x60', especificacao3: '', composicaoBasica: '87263', composicaoProfissionalId: 11 },
+      { serviceType: 'PINTURA_INTERNA', descricao: 'Pintura Interna', unidade: 'M2', quantidade: 510, especificacao1: 'Tinta Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88489', composicaoProfissionalId: 10 },
+      { serviceType: 'PINTURA_EXTERNA', descricao: 'Pintura Externa Textura', unidade: 'M2', quantidade: 175, especificacao1: 'Textura Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88423', composicaoProfissionalId: 3 },
+      { serviceType: 'LIMPEZA_INTERNA', descricao: 'Limpeza Final', unidade: 'M2', quantidade: 90, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '', composicaoProfissionalId: 0 },
+    ],
+  },
+  {
+    id: 'planta-4q-120', nome: 'Casa Premium 4Q', quartos: 4, areaConstruidaM2: 120, tempoObraMeses: 12,
+    descricao: 'Casa térrea premium com 4 quartos (2 suítes), sala ampla, cozinha gourmet, lavabo e garagem tripla',
+    compatibilidadeTerreno: { areaMinima: 360, frenteMinima: 15 },
+    servicos: [
+      { serviceType: 'FUNDACAO', descricao: 'Fundação Radier', unidade: 'M3', quantidade: 12.0, especificacao1: 'Radier', especificacao2: '', especificacao3: '', composicaoBasica: '97096', composicaoProfissionalId: 37 },
+      { serviceType: 'ALVENARIA', descricao: 'Alvenaria Estrutural', unidade: 'M2', quantidade: 420, especificacao1: 'Alvenaria Estrutural', especificacao2: 'Módulo 20 - Vertical/Horizontal', especificacao3: 'Concreto', composicaoBasica: '89288', composicaoProfissionalId: 15 },
+      { serviceType: 'GRAUTE', descricao: 'Grauteamento Vertical e Horizontal', unidade: 'M3', quantidade: 6.0, especificacao1: 'Vertical', especificacao2: '', especificacao3: '', composicaoBasica: '89993', composicaoProfissionalId: 21 },
+      { serviceType: 'CONTRAPISO', descricao: 'Contrapiso Farofa 2cm', unidade: 'M2', quantidade: 120, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '87622', composicaoProfissionalId: 41 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_PAREDE', descricao: 'Gesso Liso Paredes', unidade: 'M2', quantidade: 560, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87421', composicaoProfissionalId: 39 },
+      { serviceType: 'REVESTIMENTO_ARGAMASSA_TETO', descricao: 'Gesso Liso Teto', unidade: 'M2', quantidade: 120, especificacao1: 'Gesso Liso', especificacao2: '1,0 cm', especificacao3: '', composicaoBasica: '87414', composicaoProfissionalId: 40 },
+      { serviceType: 'REVESTIMENTO_CERAMICO', descricao: 'Porcelanato Piso 60x60', unidade: 'M2', quantidade: 105, especificacao1: 'Piso Interno', especificacao2: 'Porcelanato até 60x60', especificacao3: '', composicaoBasica: '87263', composicaoProfissionalId: 11 },
+      { serviceType: 'PINTURA_INTERNA', descricao: 'Pintura Interna', unidade: 'M2', quantidade: 680, especificacao1: 'Tinta Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88489', composicaoProfissionalId: 10 },
+      { serviceType: 'PINTURA_EXTERNA', descricao: 'Pintura Externa Textura', unidade: 'M2', quantidade: 225, especificacao1: 'Textura Acrílica', especificacao2: '', especificacao3: '', composicaoBasica: '88423', composicaoProfissionalId: 3 },
+      { serviceType: 'LIMPEZA_INTERNA', descricao: 'Limpeza Final', unidade: 'M2', quantidade: 120, especificacao1: '', especificacao2: '', especificacao3: '', composicaoBasica: '', composicaoProfissionalId: 0 },
+    ],
+  },
+]
+
+export const OPCIONAIS_PADRAO: Omit<OpcionalItem, 'selecionado'>[] = [
+  { id: 'pe-direito-alto', nome: 'Pé-direito alto', descricao: 'Deixa o ambiente mais amplo e ventilado. Aumenta o custo da obra.', vantagensCliente: 'Ambientes mais amplos, melhor ventilação e iluminação natural', desvantagensCliente: 'Aumento no custo de alvenaria, revestimento e pintura', impactoServicos: [
+    { tipo: 'INCREMENTO', serviceType: 'ALVENARIA', incrementoQuantidade: 0.25 },
+    { tipo: 'INCREMENTO', serviceType: 'REVESTIMENTO_ARGAMASSA_PAREDE', incrementoQuantidade: 0.20 },
+    { tipo: 'INCREMENTO', serviceType: 'PINTURA_INTERNA', incrementoQuantidade: 0.20 },
+  ]},
+  { id: 'garagem-coberta', nome: 'Garagem coberta', descricao: 'Protege o veículo. Acrescenta cobertura e estrutura ao projeto.', vantagensCliente: 'Proteção do veículo contra intempéries', desvantagensCliente: 'Custo adicional de estrutura e cobertura', impactoServicos: [
+    { tipo: 'INCREMENTO', serviceType: 'FUNDACAO', incrementoQuantidade: 0.15 },
+    { tipo: 'INCREMENTO', serviceType: 'CONTRAPISO', incrementoQuantidade: 0.10 },
+  ]},
+  { id: 'piscina', nome: 'Piscina', descricao: 'Lazer. Impacto significativo no custo e no prazo da obra.', vantagensCliente: 'Área de lazer valoriza o imóvel', desvantagensCliente: 'Custo significativo, manutenção recorrente, impacto no prazo', impactoServicos: [
+    { tipo: 'INCREMENTO', serviceType: 'FUNDACAO', incrementoQuantidade: 0.30 },
+    { tipo: 'INCREMENTO', serviceType: 'REVESTIMENTO_CERAMICO', incrementoQuantidade: 0.15 },
+  ]},
+  { id: 'forro-gesso', nome: 'Forro rebaixado (gesso)', descricao: 'Acabamento mais refinado no teto. Impacta custo e prazo de acabamento.', vantagensCliente: 'Acabamento mais sofisticado, esconde tubulações', desvantagensCliente: 'Custo adicional de material e mão de obra', impactoServicos: [
+    { tipo: 'INCREMENTO', serviceType: 'REVESTIMENTO_ARGAMASSA_TETO', incrementoQuantidade: 0.40 },
+  ]},
+  { id: 'aquecedor-solar', nome: 'Aquecedor solar', descricao: 'Reduz conta de energia. Requer instalação hidráulica específica.', vantagensCliente: 'Economia na conta de energia, sustentabilidade', desvantagensCliente: 'Investimento inicial, manutenção periódica', impactoServicos: [] },
+  { id: 'placas-solares', nome: 'Placas solares (fotovoltaico)', descricao: 'Geração de energia elétrica. Requer instalação elétrica específica.', vantagensCliente: 'Geração própria de energia, economia a longo prazo', desvantagensCliente: 'Investimento inicial elevado', impactoServicos: [] },
+  { id: 'automacao', nome: 'Corretor elétrico (automação)', descricao: 'Automação residencial de circuitos elétricos. Aumenta conforto e custo.', vantagensCliente: 'Conforto, praticidade, valorização do imóvel', desvantagensCliente: 'Custo de equipamentos e instalação diferenciada', impactoServicos: [] },
+]
+
+export const CONDICOES_FINANCIAMENTO: CondicoesFinanciamento[] = [
+  { modalidade: 'MCMV', taxaJurosAnual: 0.055, prazoMaximoMeses: 420, percentualMaximoFinanciavel: 0.80, valorMaximo: 600000 },
+  { modalidade: 'SBPE', taxaJurosAnual: 0.0999, prazoMaximoMeses: 420, percentualMaximoFinanciavel: 0.80, valorMaximo: 1500000 },
+]
+
+export const FASES_OBRA_PADRAO: FaseObra[] = [
+  { nome: 'Fundação e Estrutura', mesInicio: 1, mesFim: 2, percentualCusto: 0.25, servicosRelacionados: ['FUNDACAO', 'ESTRUTURA_CONCRETO'] },
+  { nome: 'Alvenaria e Graute', mesInicio: 2, mesFim: 4, percentualCusto: 0.20, servicosRelacionados: ['ALVENARIA', 'GRAUTE', 'ARMACAO_VERTICAL_HORIZONTAL'] },
+  { nome: 'Revestimentos e Contrapiso', mesInicio: 3, mesFim: 6, percentualCusto: 0.25, servicosRelacionados: ['CONTRAPISO', 'REVESTIMENTO_ARGAMASSA_PAREDE', 'REVESTIMENTO_ARGAMASSA_TETO', 'REVESTIMENTO_CERAMICO'] },
+  { nome: 'Pintura e Acabamentos', mesInicio: 5, mesFim: 8, percentualCusto: 0.20, servicosRelacionados: ['PINTURA_INTERNA', 'PINTURA_EXTERNA'] },
+  { nome: 'Limpeza e Entrega', mesInicio: 7, mesFim: 8, percentualCusto: 0.10, servicosRelacionados: ['LIMPEZA_INTERNA'] },
 ]

@@ -14,6 +14,9 @@ import CalculadoraMO from './CalculadoraMO'
 import CalculadoraMateriais from './CalculadoraMateriais'
 import ConsolidacaoOrcamento from './ConsolidacaoOrcamento'
 import GestaoOrcamentos from './GestaoOrcamentos'
+import QuantitativosServico from './QuantitativosServico'
+import PrecificacaoFinal from './PrecificacaoFinal'
+import GestaoPlantasModule from './GestaoPlantasModule'
 import type { EngineerData } from '@/types'
 
 export default function EngineerApp({ onLogout }: { onLogout: () => void }) {
@@ -40,7 +43,10 @@ export default function EngineerApp({ onLogout }: { onLogout: () => void }) {
       case 'precificador': return <Precificador data={data} onUpdate={update} />
       case 'calculadora-mo': return <CalculadoraMO data={data} onUpdate={update} />
       case 'calculadora-mat': return <CalculadoraMateriais data={data} onUpdate={update} />
+      case 'precificacao-final': return <PrecificacaoFinal data={data} onUpdate={update} orcamentos={clientSession.orcamentos} />
+      case 'quantitativos': return <QuantitativosServico data={data} onUpdate={update} orcamentos={clientSession.orcamentos} />
       case 'consolidacao': return <ConsolidacaoOrcamento data={data} orcamentos={clientSession.orcamentos} />
+      case 'gestao-plantas': return <GestaoPlantasModule data={data} onUpdate={update} />
       case 'orcamentos': return <GestaoOrcamentos data={data} onUpdate={update} orcamentos={clientSession.orcamentos} />
     }
   }

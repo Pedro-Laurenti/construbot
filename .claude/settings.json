@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(frontend/node_modules/.bin/tsc --noEmit --project frontend/tsconfig.json)",
+      "Bash(python -c \"from app.main import app; print\\('Import OK'\\)\")",
+      "Bash(uvicorn app.main:app --port 8000)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -m json.tool echo \"\" echo \"--- DONE ---\" kill %1)",
+      "Bash(pkill -f \"uvicorn app.main\")",
+      "Bash(python3 -c \"from app.main import app; print\\('OK'\\)\")",
+      "Bash(kill %1)",
+      "Bash(npx --no-install tsc --noEmit)"
+    ]
+  }
+}

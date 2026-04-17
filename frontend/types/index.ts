@@ -107,14 +107,27 @@ export interface OrcamentoTotais {
   precoPorM2CLT: number
 }
 
+export type OrcamentoStatus = 'rascunho' | 'calculado' | 'enviado' | 'aguardando_engenheiro' | 'em_calculo' | 'entregue'
+
+export interface FaixaCotacao {
+  minimo: number
+  maximo: number
+  areaConstruidaM2: number
+  tempoObraMeses: number
+}
+
 export interface Orcamento {
   id: string
+  nome: string
   clienteId: string
   dataCriacao: string
-  status: 'rascunho' | 'calculado' | 'enviado'
+  status: OrcamentoStatus
   uf: string
   itens: OrcamentoItem[]
   totais?: OrcamentoTotais
+  parametros?: ParametrosCliente
+  saida?: SaidaCliente
+  faixaCotacao?: FaixaCotacao
 }
 
 export interface Cliente {
@@ -332,6 +345,164 @@ export interface OrcamentoReviewStatus {
   observacoes: string
 }
 
+export type ModalidadeFinanciamento = 'MCMV' | 'SBPE'
+export type TopografiaTerreno = 'PLANO' | 'ACLIVE' | 'DECLIVE'
+export type SituacaoTerreno = 'PROPRIO_QUITADO' | 'FINANCIADO_EM_CURSO' | 'A_ADQUIRIR'
+
+export interface Terreno {
+  municipio: string
+  bairro: string
+  endereco: string
+  frenteMetros: number
+  fundoMetros: number
+  areaTotalM2: number
+  topografia: TopografiaTerreno
+  situacao: SituacaoTerreno
+  valorAvaliacao: number
+}
+
+export interface ServicoPlanta {
+  serviceType: ServiceType
+  descricao: string
+  unidade: string
+  quantidade: number
+  especificacao1: string
+  especificacao2: string
+  especificacao3: string
+  composicaoBasica: string
+  composicaoProfissionalId: number
+}
+
+export interface PlantaPadrao {
+  id: string
+  nome: string
+  quartos: number
+  areaConstruidaM2: number
+  tempoObraMeses: number
+  descricao: string
+  compatibilidadeTerreno: { areaMinima: number; frenteMinima: number }
+  servicos: ServicoPlanta[]
+}
+
+export interface ImpactoOpcional {
+  tipo: 'INCREMENTO' | 'NOVO_SERVICO'
+  serviceType: ServiceType
+  incrementoQuantidade?: number
+  novoServico?: ServicoPlanta
+}
+
+export interface OpcionalItem {
+  id: string
+  nome: string
+  descricao: string
+  vantagensCliente: string
+  desvantagensCliente: string
+  selecionado: boolean
+  impactoServicos: ImpactoOpcional[]
+}
+
+export interface Personalizacao {
+  id: string
+  descricao: string
+  impacto: string
+  custoEstimadoAdicional: number
+}
+
+export interface ParametrosCliente {
+  terreno: Terreno
+  quartos: number
+  plantaId: string
+  opcionais: OpcionalItem[]
+  personalizacoes: Personalizacao[]
+  modalidadeFinanciamento: ModalidadeFinanciamento
+}
+
+export interface AporteMensal {
+  mes: number
+  aporteRecursosProprios: number
+  repasseFinanciamento: number
+  desembolsoTotal: number
+}
+
+export interface SaidaCliente {
+  valorMinimoEntrada: number
+  parcelaMensalPrice: number
+  tabelaAportes: AporteMensal[]
+  prazoTotalObraMeses: number
+  precoFinalObra: number
+}
+
+export interface CondicoesFinanciamento {
+  modalidade: ModalidadeFinanciamento
+  taxaJurosAnual: number
+  prazoMaximoMeses: number
+  percentualMaximoFinanciavel: number
+  valorMaximo: number
+}
+
+export interface ParametrosINCC {
+  inccProjetadoMensal: number
+  mesReferencia: string
+}
+
+export interface FaseObra {
+  nome: string
+  mesInicio: number
+  mesFim: number
+  percentualCusto: number
+  servicosRelacionados: ServiceType[]
+}
+
+export interface FluxoCaixaMensal {
+  mes: number
+  custoParcela: number
+  custoParcelaCorrigido: number
+  inccAcumulado: number
+}
+
+export interface QuantitativoServico {
+  id: string
+  serviceType: ServiceType
+  descricao: string
+  unidade: string
+  quantidade: number
+  especificacao1: string
+  especificacao2: string
+  especificacao3: string
+  composicaoBasica: string
+  composicaoProfissionalId: number
+  modalidade: ContratoModalidade
+  origem: 'PLANTA_BASE' | 'OPCIONAL' | 'PERSONALIZACAO'
+}
+
+export interface PrecificacaoFinalResult {
+  custoDiretoMEI: number
+  custoDiretoCLT: number
+  custoDiretoPorM2MEI: number
+  custoDiretoPorM2CLT: number
+  custoDiretoComInccMEI: number
+  custoDiretoComInccCLT: number
+  precoFinalMEI: number
+  precoFinalCLT: number
+  precoPorM2MEI: number
+  precoPorM2CLT: number
+  parcelaPriceMEI: number
+  parcelaPriceCLT: number
+  aporteMinMEI: number
+  aporteMinCLT: number
+  fluxoCaixaMEI: FluxoCaixaMensal[]
+  fluxoCaixaCLT: FluxoCaixaMensal[]
+  tabelaAportesMEI: AporteMensal[]
+  tabelaAportesCLT: AporteMensal[]
+}
+
+export interface OrcamentoEngenheiro {
+  orcamentoClienteId: string
+  etapaAtual: 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'ENTREGUE'
+  quantitativos: QuantitativoServico[]
+  precificacao?: PrecificacaoFinalResult
+}
+
 export interface EngineerData {
   globalParams: GlobalParams
   gruposEncargos: GruposEncargos
@@ -341,4 +512,8 @@ export interface EngineerData {
   calculoMatConfigs: Record<string, CalculoMatConfig>
   orcamentoReviews: Record<string, OrcamentoReviewStatus>
   uf: string
+  inccMensal: number
+  mesReferenciaSINAPI: string
+  orcamentosEngenheiro: Record<string, OrcamentoEngenheiro>
+  plantas: PlantaPadrao[]
 }
