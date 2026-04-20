@@ -18,7 +18,9 @@
       "Bash(npx --no-install next build)",
       "Bash(/home/pedro/DEVP/construbot/frontend/node_modules/.bin/tsc --noEmit -p /home/pedro/DEVP/construbot/frontend/tsconfig.json)",
       "Bash(/home/pedro/DEVP/construbot/frontend/node_modules/.bin/next build *)",
-      "Bash(git -C /home/pedro/DEVP/construbot status --short)"
+      "Bash(git -C /home/pedro/DEVP/construbot status --short)",
+      "Bash(/home/pedro/DEVP/construbot/backend/.venv/bin/pip list *)",
+      "Bash(/home/pedro/DEVP/construbot/backend/.venv/bin/python3 -c ' *)"
     ]
   }
 }

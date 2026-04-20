@@ -128,6 +128,7 @@ export interface Orcamento {
   parametros?: ParametrosCliente
   saida?: SaidaCliente
   faixaCotacao?: FaixaCotacao
+  logEtapas?: Array<{ etapa: string; concluidaEm: string }>
 }
 
 export interface Cliente {
@@ -500,10 +501,39 @@ export interface PrecificacaoFinalResult {
   tabelaAportesCLT: AporteMensal[]
 }
 
+export interface InsumoResolvido {
+  codigo: string
+  descricao: string
+  unidade: string
+  coeficiente: number
+  valorUnitario: number
+  total: number
+  isFallbackSP: boolean
+}
+
+export interface ConsultaSINAPIServico {
+  codigoComposicao: string
+  insumos: InsumoResolvido[]
+  subtotal: number
+}
+
+export interface CenarioMOServico {
+  config: CalculoMOConfig
+  resultado: CalculoMOResultado
+  cenarioEscolhido: 'Mensalista' | 'Ótima' | 'Prazo'
+  modalidade: ContratoModalidade
+}
+
 export interface OrcamentoEngenheiro {
   orcamentoClienteId: string
   etapaAtual: 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'ENTREGUE'
+  etapasConcluidas: Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>
+  logEtapas?: Array<{ etapa: string; concluidaEm: string }>
   quantitativos: QuantitativoServico[]
+  consultasSINAPI: Record<string, ConsultaSINAPIServico>
+  calculosMO: Record<string, CenarioMOServico>
+  calculosMat: Record<string, CalculoMatConfig>
+  fasesObra?: FaseObra[]
   precificacao?: PrecificacaoFinalResult
 }
 

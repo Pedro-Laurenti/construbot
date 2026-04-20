@@ -9,19 +9,17 @@ import TabelaSINAPI from './TabelaSINAPI'
 import ConsultaComposicao from './ConsultaComposicao'
 import ComposicoesAnaliticas from './ComposicoesAnaliticas'
 import ComposicoesProfissionais from './ComposicoesProfissionais'
-import Precificador from './Precificador'
 import CalculadoraMO from './CalculadoraMO'
 import CalculadoraMateriais from './CalculadoraMateriais'
-import ConsolidacaoOrcamento from './ConsolidacaoOrcamento'
 import GestaoOrcamentos from './GestaoOrcamentos'
-import QuantitativosServico from './QuantitativosServico'
-import PrecificacaoFinal from './PrecificacaoFinal'
 import GestaoPlantasModule from './GestaoPlantasModule'
-import type { EngineerData } from '@/types'
+import OrcamentoWizard from './OrcamentoWizard'
+import type { EngineerData, Orcamento } from '@/types'
 
 export default function EngineerApp({ onLogout }: { onLogout: () => void }) {
-  const [activeModule, setActiveModule] = useState<EngineerModule>('painel')
+  const [activeModule, setActiveModule] = useState<EngineerModule>('orcamentos')
   const [data, setData] = useState<EngineerData>(() => loadEngineerData())
+  const [wizardOrcamento, setWizardOrcamento] = useState<Orcamento | null>(null)
 
   function update(partial: Partial<EngineerData>) {
     setData(prev => {
@@ -40,15 +38,33 @@ export default function EngineerApp({ onLogout }: { onLogout: () => void }) {
       case 'consulta': return <ConsultaComposicao uf={data.uf} />
       case 'composicoes-analiticas': return <ComposicoesAnaliticas />
       case 'composicoes-profissionais': return <ComposicoesProfissionais data={data} onUpdate={update} />
-      case 'precificador': return <Precificador data={data} onUpdate={update} />
       case 'calculadora-mo': return <CalculadoraMO data={data} onUpdate={update} />
       case 'calculadora-mat': return <CalculadoraMateriais data={data} onUpdate={update} />
-      case 'precificacao-final': return <PrecificacaoFinal data={data} onUpdate={update} orcamentos={clientSession.orcamentos} />
-      case 'quantitativos': return <QuantitativosServico data={data} onUpdate={update} orcamentos={clientSession.orcamentos} />
-      case 'consolidacao': return <ConsolidacaoOrcamento data={data} orcamentos={clientSession.orcamentos} />
       case 'gestao-plantas': return <GestaoPlantasModule data={data} onUpdate={update} />
-      case 'orcamentos': return <GestaoOrcamentos data={data} onUpdate={update} orcamentos={clientSession.orcamentos} />
+      case 'orcamentos': return (
+        <GestaoOrcamentos
+          data={data}
+          onUpdate={update}
+          orcamentos={clientSession.orcamentos}
+          onEnterWizard={orc => setWizardOrcamento(orc)}
+        />
+      )
     }
+  }
+
+  if (wizardOrcamento) {
+    const session = loadStorage()
+    const orcAtual = session.orcamentos.find(o => o.id === wizardOrcamento.id) ?? wizardOrcamento
+    return (
+      <div className="h-screen overflow-hidden flex flex-col">
+        <OrcamentoWizard
+          orcamento={orcAtual}
+          data={data}
+          onUpdate={update}
+          onVoltar={() => setWizardOrcamento(null)}
+        />
+      </div>
+    )
   }
 
   return (
@@ -60,3 +76,4 @@ export default function EngineerApp({ onLogout }: { onLogout: () => void }) {
     </div>
   )
 }
+

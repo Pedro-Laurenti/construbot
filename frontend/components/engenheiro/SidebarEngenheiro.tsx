@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdInventory, MdSummarize, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdFormatListNumbered, MdPriceCheck, MdHomeWork } from 'react-icons/md'
+import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdHomeWork } from 'react-icons/md'
 
-type EngineerModule = 'painel' | 'parametros' | 'quantitativos' | 'consulta' | 'calculadora-mo' | 'calculadora-mat' | 'precificacao-final' | 'sinapi' | 'composicoes-analiticas' | 'composicoes-profissionais' | 'precificador' | 'consolidacao' | 'orcamentos' | 'gestao-plantas'
+export type EngineerModule = 'painel' | 'parametros' | 'consulta' | 'calculadora-mo' | 'calculadora-mat' | 'sinapi' | 'composicoes-analiticas' | 'composicoes-profissionais' | 'orcamentos' | 'gestao-plantas'
 
 interface NavSection {
   title: string
@@ -12,32 +12,28 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: 'ETAPAS DO ORÇAMENTO',
+    title: 'TRABALHAR EM ORÇAMENTO',
     items: [
-      { id: 'parametros', label: 'E1 Parâmetros Globais', sub: 'BDI, encargos e INCC', icon: <MdSettings size={20} /> },
-      { id: 'quantitativos', label: 'E2 Quantitativos', sub: 'Serviços da planta', icon: <MdFormatListNumbered size={20} /> },
-      { id: 'consulta', label: 'E3 Composições SINAPI', sub: 'Consulta com custo', icon: <MdSearch size={20} /> },
-      { id: 'calculadora-mo', label: 'E4 Cálculo MO', sub: '3 cenários + bônus', icon: <MdCalculate size={20} /> },
-      { id: 'calculadora-mat', label: 'E5 Cálculo Materiais', sub: 'Insumos por serviço', icon: <MdEngineering size={20} /> },
-      { id: 'precificacao-final', label: 'E6 Precificação Final', sub: 'INCC + BDI + Price + AA', icon: <MdPriceCheck size={20} /> },
+      { id: 'orcamentos', label: 'Orçamentos Clientes', sub: 'Iniciar, continuar, entregar', icon: <MdFolderOpen size={20} /> },
     ],
   },
   {
-    title: 'FERRAMENTAS',
+    title: 'FERRAMENTAS DE CONSULTA',
     items: [
-      { id: 'sinapi', label: 'SINAPI - Insumos (ISE)', sub: 'Tabela de preços por UF', icon: <MdTableChart size={20} /> },
+      { id: 'sinapi', label: 'SINAPI — Insumos (ISE)', sub: 'Tabela de preços por UF', icon: <MdTableChart size={20} /> },
       { id: 'composicoes-analiticas', label: 'Composições Analíticas', sub: 'Hierarquia 3 níveis', icon: <MdAccountTree size={20} /> },
       { id: 'composicoes-profissionais', label: 'Composições Profissionais', sub: 'Produtividade', icon: <MdPeople size={20} /> },
-      { id: 'gestao-plantas', label: 'Plantas Arquitetônicas', sub: 'Gerenciar plantas dos clientes', icon: <MdHomeWork size={20} /> },
-      { id: 'precificador', label: 'Precificador', sub: '12 tipos de serviço', icon: <MdInventory size={20} /> },
-      { id: 'consolidacao', label: 'Consolidação', sub: 'Totais + exportar', icon: <MdSummarize size={20} /> },
+      { id: 'gestao-plantas', label: 'Plantas Arquitetônicas', sub: 'Gerenciar plantas', icon: <MdHomeWork size={20} /> },
+      { id: 'consulta', label: 'Consulta de Composição', sub: 'SINAPI com custo avulso', icon: <MdSearch size={20} /> },
+      { id: 'calculadora-mo', label: 'Calculadora MO', sub: 'Cálculo avulso', icon: <MdCalculate size={20} /> },
+      { id: 'calculadora-mat', label: 'Calculadora Materiais', sub: 'Cálculo avulso', icon: <MdEngineering size={20} /> },
     ],
   },
   {
     title: 'GESTÃO',
     items: [
       { id: 'painel', label: 'Painel Geral', sub: 'Dashboard', icon: <MdDashboard size={20} /> },
-      { id: 'orcamentos', label: 'Orçamentos Clientes', sub: 'Iniciar, continuar, entregar', icon: <MdFolderOpen size={20} /> },
+      { id: 'parametros', label: 'Parâmetros Globais', sub: 'BDI, encargos e INCC', icon: <MdSettings size={20} /> },
     ],
   },
 ]

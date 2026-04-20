@@ -4,33 +4,51 @@ import { useState } from 'react'
 import { INSUMOS_SINAPI, UF_LIST } from '@/lib/mockData'
 import { calcularMatEngenheiro } from '@/lib/calculos'
 import { formatCurrency } from '@/lib/formatters'
-import type { EngineerData, CalculoMatConfig, InsumoCalculo } from '@/types'
+import { MdWarning, MdCheckCircle } from 'react-icons/md'
+import type { EngineerData, CalculoMatConfig, InsumoCalculo, OrcamentoEngenheiro } from '@/types'
 
-interface Props { data: EngineerData; onUpdate: (p: Partial<EngineerData>) => void }
+interface Props {
+  data: EngineerData
+  onUpdate: (p: Partial<EngineerData>) => void
+  orcamentoId?: string
+  engData?: OrcamentoEngenheiro
+  onUpdateEng?: (patch: Partial<OrcamentoEngenheiro>) => void
+}
 
 function emptyInsumo(): InsumoCalculo {
   return { codigoSINAPI: '', descricao: '', unidade: '', coeficiente: 0, valorUnitario: 0, total: 0 }
 }
 
-function defaultMatConfig(item: EngineerData['precificadorItens'][0]): CalculoMatConfig {
-  return {
-    servicoId: item.id,
-    servico: item.servico,
-    unidade: item.unidade,
-    quantidade: item.quantidade,
-    composicaoBasica: item.composicaoBasica,
-    insumos: [emptyInsumo()],
-  }
+function defaultMatConfig(id: string, servico: string, unidade: string, quantidade: number, comp: string): CalculoMatConfig {
+  return { servicoId: id, servico, unidade, quantidade, composicaoBasica: comp, insumos: [emptyInsumo()] }
 }
 
-export default function CalculadoraMateriais({ data, onUpdate }: Props) {
-  const { precificadorItens, calculoMatConfigs } = data
+export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engData, onUpdateEng }: Props) {
+  const modoWizard = !!orcamentoId && !!engData
+
+  const itensLista = modoWizard
+    ? (engData!.quantitativos ?? []).map(q => ({ id: q.id, servico: q.serviceType, unidade: q.unidade, quantidade: q.quantidade, composicaoBasica: q.composicaoBasica }))
+    : data.precificadorItens.map(i => ({ id: i.id, servico: i.servico, unidade: i.unidade, quantidade: i.quantidade, composicaoBasica: i.composicaoBasica }))
+
   const [configs, setConfigs] = useState<Record<string, CalculoMatConfig>>(() => {
     const base: Record<string, CalculoMatConfig> = {}
-    precificadorItens.forEach(item => { base[item.id] = calculoMatConfigs[item.id] ?? defaultMatConfig(item) })
+    itensLista.forEach(item => {
+      const saved = modoWizard ? engData!.calculosMat[item.id] : data.calculoMatConfigs[item.id]
+      if (saved) { base[item.id] = saved; return }
+      const consultaSINAPI = modoWizard ? engData!.consultasSINAPI[item.id] : undefined
+      const insumos: InsumoCalculo[] = consultaSINAPI
+        ? consultaSINAPI.insumos.filter(i => i.total > 0 || i.valorUnitario > 0).map(i => ({
+            codigoSINAPI: i.codigo, descricao: i.descricao, unidade: i.unidade,
+            coeficiente: i.coeficiente, valorUnitario: i.valorUnitario,
+            total: i.coeficiente * i.valorUnitario * item.quantidade,
+          }))
+        : [emptyInsumo()]
+      base[item.id] = { ...defaultMatConfig(item.id, item.servico, item.unidade, item.quantidade, item.composicaoBasica), insumos }
+    })
     return base
   })
-  const [selected, setSelected] = useState<string | null>(precificadorItens[0]?.id ?? null)
+
+  const [selected, setSelected] = useState<string | null>(itensLista[0]?.id ?? null)
   const [uf, setUf] = useState(data.uf)
 
   function getPrecoByUF(codigo: string): { valor: number; fallback: boolean } {
@@ -39,6 +57,13 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
     const v = ins.precos[uf]
     if (v !== null && v !== undefined) return { valor: v, fallback: false }
     return { valor: ins.precos['SP'] ?? 0, fallback: true }
+  }
+
+  function isFallbackSP(codigoSINAPI: string): boolean {
+    if (!modoWizard || !selected) return getPrecoByUF(codigoSINAPI).fallback
+    const consulta = engData!.consultasSINAPI[selected]
+    if (!consulta) return getPrecoByUF(codigoSINAPI).fallback
+    return consulta.insumos.find(i => i.codigo === codigoSINAPI)?.isFallbackSP ?? false
   }
 
   function updateInsumo(servicoId: string, idx: number, field: keyof InsumoCalculo, value: string | number) {
@@ -80,18 +105,22 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
 
   function salvar(servicoId: string) {
     const cfg = configs[servicoId]
-    onUpdate({ calculoMatConfigs: { ...calculoMatConfigs, [servicoId]: cfg } })
+    if (modoWizard && onUpdateEng) {
+      onUpdateEng({ calculosMat: { ...engData!.calculosMat, [servicoId]: cfg } })
+    } else {
+      onUpdate({ calculoMatConfigs: { ...data.calculoMatConfigs, [servicoId]: cfg } })
+    }
   }
 
   const cfg = selected ? configs[selected] : null
   const totalServico = cfg ? calcularMatEngenheiro(cfg) : 0
   const totalGeral = Object.values(configs).reduce((s, c) => s + calcularMatEngenheiro(c), 0)
 
-  if (precificadorItens.length === 0) {
+  if (itensLista.length === 0) {
     return (
       <div className="flex flex-col gap-4 max-w-5xl">
-        <h1 className="text-2xl font-bold">Calculadora — Materiais</h1>
-        <div className="card bg-base-100 shadow"><div className="card-body items-center py-12"><p className="text-base-content/40">Configure serviços no Precificador primeiro.</p></div></div>
+        <h2 className="text-xl font-bold">{modoWizard ? 'E5 — Materiais' : 'Calculadora — Materiais'}</h2>
+        <div className="card bg-base-100 shadow"><div className="card-body items-center py-12"><p className="text-base-content/40 text-sm">Configure serviços {modoWizard ? 'nos quantitativos (E2)' : 'no Precificador'} primeiro.</p></div></div>
       </div>
     )
   }
@@ -99,7 +128,10 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
   return (
     <div className="flex flex-col gap-4 max-w-full">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold">Calculadora — Materiais</h1><p className="text-base-content/50 text-sm">Seção 7 — Insumos por serviço</p></div>
+        <div>
+          <h2 className="text-xl font-bold">{modoWizard ? 'E5 — Materiais' : 'Calculadora — Materiais'}</h2>
+          <p className="text-base-content/50 text-sm">{itensLista.length} serviço(s) · Seção 7</p>
+        </div>
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-xs">UF</legend>
           <select value={uf} onChange={e => setUf(e.target.value)} className="select select-sm">
@@ -109,12 +141,15 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {precificadorItens.map(item => (
-          <button key={item.id} onClick={() => setSelected(item.id)} className={`btn btn-sm ${selected === item.id ? 'btn-primary' : 'btn-ghost'}`}>
-            {item.servico.replace(/_/g, ' ')}
-            {calculoMatConfigs[item.id] && <span className="badge badge-xs badge-success ml-1">salvo</span>}
-          </button>
-        ))}
+        {itensLista.map(item => {
+          const salvo = modoWizard ? !!engData!.calculosMat[item.id] : !!data.calculoMatConfigs[item.id]
+          return (
+            <button key={item.id} onClick={() => setSelected(item.id)} className={`btn btn-sm gap-1 ${selected === item.id ? 'btn-primary' : 'btn-ghost'}`}>
+              {salvo && <MdCheckCircle size={14} className="text-success" />}
+              {item.servico.replace(/_/g, ' ')}
+            </button>
+          )
+        })}
       </div>
 
       {cfg && selected && (
@@ -122,7 +157,7 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
           <div className="card-body p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="font-semibold">{cfg.servico.replace(/_/g, ' ')} — Qtd: {cfg.quantidade} {cfg.unidade}</p>
-              <button onClick={() => salvar(selected)} className="btn btn-primary btn-sm">Salvar</button>
+              <button onClick={() => salvar(selected)} className="btn btn-primary btn-sm gap-1"><MdCheckCircle size={14} /> Salvar</button>
             </div>
             <table className="table table-sm">
               <thead>
@@ -130,7 +165,7 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
               </thead>
               <tbody>
                 {cfg.insumos.map((ins, idx) => {
-                  const { fallback } = getPrecoByUF(ins.codigoSINAPI)
+                  const fallback = isFallbackSP(ins.codigoSINAPI)
                   const total = ins.coeficiente * ins.valorUnitario * cfg.quantidade
                   return (
                     <tr key={idx}>
@@ -139,14 +174,18 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
                       </td>
                       <td className="text-xs max-w-[200px] truncate">
                         {ins.descricao || '—'}
-                        {fallback && <span className="badge badge-xs badge-warning ml-1">SP</span>}
+                        {fallback && (
+                          <span className="badge badge-xs badge-warning ml-1 gap-1">
+                            <MdWarning size={10} /> %AS SP
+                          </span>
+                        )}
                       </td>
                       <td className="text-xs">{ins.unidade}</td>
                       <td className="text-right">
                         <input type="number" step="0.001" value={ins.coeficiente} onChange={e => updateInsumo(selected, idx, 'coeficiente', parseFloat(e.target.value) || 0)} className="input input-xs w-20 text-right" />
                       </td>
                       <td className="text-right">
-                        <input type="number" step="0.01" value={ins.valorUnitario} onChange={e => updateInsumo(selected, idx, 'valorUnitario', parseFloat(e.target.value) || 0)} className="input input-xs w-24 text-right" />
+                        <input type="number" step="0.01" value={ins.valorUnitario} onChange={e => updateInsumo(selected, idx, 'valorUnitario', parseFloat(e.target.value) || 0)} className={`input input-xs w-24 text-right ${fallback ? 'border-warning' : ''}`} />
                       </td>
                       <td className="text-right font-mono text-xs">{formatCurrency(total)}</td>
                       <td><button onClick={() => removeInsumo(selected, idx)} className="btn btn-ghost btn-xs text-error">×</button></td>
@@ -171,10 +210,8 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
 
       <div className="card bg-base-100 shadow">
         <div className="card-body p-4">
-          <div className="flex items-center justify-between">
-            <p className="font-semibold">Resumo de Materiais</p>
-          </div>
-          <div className="grid grid-cols-3 gap-3 mt-2">
+          <p className="font-semibold mb-2">Resumo de Materiais</p>
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-base-200 rounded p-3 text-center">
               <p className="text-xs text-base-content/50">Total Materiais</p>
               <p className="font-mono font-bold">{formatCurrency(totalGeral)}</p>
@@ -193,3 +230,4 @@ export default function CalculadoraMateriais({ data, onUpdate }: Props) {
     </div>
   )
 }
+

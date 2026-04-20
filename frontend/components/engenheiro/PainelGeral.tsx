@@ -1,11 +1,12 @@
 'use client'
 
 import { formatCurrency, formatDate } from '@/lib/formatters'
+import { seedOrcamentoMock, clearOrcamentosMock } from '@/lib/seedMock'
 import type { EngineerData, Orcamento } from '@/types'
 
-interface Props { engineerData: EngineerData; orcamentos: Orcamento[] }
+interface Props { engineerData: EngineerData; orcamentos: Orcamento[]; onReload?: () => void }
 
-export default function PainelGeral({ engineerData, orcamentos }: Props) {
+export default function PainelGeral({ engineerData, orcamentos, onReload }: Props) {
   const { globalParams, calculoMOResults, calculoMatConfigs } = engineerData
   const calculados = orcamentos.filter(o => o.status === 'calculado')
   const totalMOResults = Object.values(calculoMOResults)
@@ -91,6 +92,45 @@ export default function PainelGeral({ engineerData, orcamentos }: Props) {
           </div>
         </div>
       )}
+
+      {recentes.length === 0 && (
+        <div className="card bg-base-100 shadow">
+          <div className="card-body items-center py-8">
+            <p className="text-base-content/40 text-sm">Nenhum orçamento recebido ainda.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="card bg-base-200 border border-dashed border-base-300">
+        <div className="card-body p-4 gap-3">
+          <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wide">Ferramentas de Desenvolvimento</p>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              className="btn btn-sm btn-warning"
+              onClick={() => {
+                seedOrcamentoMock()
+                onReload?.()
+                window.location.reload()
+              }}
+            >
+              Injetar orçamento mock
+            </button>
+            <button
+              className="btn btn-sm btn-ghost text-error"
+              onClick={() => {
+                clearOrcamentosMock()
+                onReload?.()
+                window.location.reload()
+              }}
+            >
+              Limpar mocks
+            </button>
+          </div>
+          <p className="text-xs text-base-content/40">
+            Injeta um orçamento de demonstração (Casa Padrão 3Q · 72m² · SP · SBPE) no localStorage com status <span className="font-mono">aguardando_engenheiro</span>.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
