@@ -4,21 +4,27 @@ import { useState, useEffect } from 'react'
 import { fetchWithAuth } from '@/lib/api'
 import { loadStorage, saveStorage, clearStorage, loadRole, saveRole } from '@/lib/storage'
 import { SEED_CLIENTE, SEED_ORCAMENTO } from '@/lib/mockData'
-import OnboardingForm from '@/components/OnboardingForm'
+import OnboardingChatFlow from '@/components/OnboardingChatFlow'
 import Sidebar from '@/components/Sidebar'
-import OrcamentoChatFlow from '@/components/OrcamentoChatFlow'
+import OrcamentoChatFlow, { type ResumeState, type Phase } from '@/components/OrcamentoChatFlow'
+import OrcamentoEditModal from '@/components/OrcamentoEditModal'
+import type { CartEditResult } from '@/components/CarrinhoFlutuante'
 import ResultadoOrcamento from '@/components/ResultadoOrcamento'
 import EngineerApp from '@/components/engenheiro/EngineerApp'
-import { MdSmartToy, MdApartment, MdHistory } from 'react-icons/md'
+import { MdSmartToy, MdApartment, MdHistory, MdEdit, MdPerson } from 'react-icons/md'
 import { formatDate, formatCurrency } from '@/lib/formatters'
+import { loadEngineerData } from '@/lib/storage'
+import { gerarQuantitativosFromParametros, calcularFaixaCotacao } from '@/lib/calculos'
 import EntregaResultado from '@/components/EntregaResultado'
-import type { AppSession, Cliente, Orcamento, UserRole, ModalidadeFinanciamento } from '@/types'
+import type { AppSession, Cliente, Orcamento, UserRole, ModalidadeFinanciamento, PlantaPadrao } from '@/types'
 
 export default function Home() {
   const [session, setSession] = useState<AppSession | null>(null)
   const [role, setRole] = useState<UserRole>('cliente')
   const [selectedId, setSelectedId] = useState<string>('novo')
   const [apiStatus, setApiStatus] = useState<'loading' | 'ok' | 'error'>('loading')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [resumeState, setResumeState] = useState<ResumeState | null>(null)
 
   useEffect(() => {
     const r = loadRole()
@@ -44,6 +50,19 @@ export default function Home() {
     setSession(updated)
   }
 
+  function handleLoginExisting(restored: AppSession) {
+    saveStorage(restored)
+    setSession(restored)
+    setSelectedId('novo')
+  }
+
+  function handleProfileSave(cliente: Cliente) {
+    if (!session) return
+    const updated: AppSession = { ...session, cliente }
+    saveStorage(updated)
+    setSession(updated)
+  }
+
   function handleOrcamentoSaved(orc: Orcamento) {
     if (!session) return
     const exists = session.orcamentos.find(o => o.id === orc.id)
@@ -54,6 +73,79 @@ export default function Home() {
     saveStorage(updated)
     setSession(updated)
     setSelectedId(orc.id)
+    setResumeState(null)
+  }
+
+  function handleEditSave(result: CartEditResult) {
+    if (!session || !editingId) return
+    const orc = session.orcamentos.find(o => o.id === editingId)
+    if (!orc) return
+
+    if (result.invalidated) {
+      if (!result.terreno) return
+      const resume: ResumeState = {
+        orcamentoId: orc.id,
+        modalidade: result.modalidade ?? 'MCMV',
+        terreno: result.terreno,
+        uf: result.uf ?? orc.uf,
+        quartos: result.quartos ?? 0,
+        planta: undefined,
+        opcionais: [],
+        personalizacoes: [],
+        nome: orc.nome,
+        startPhase: (result.resetToPhase as Phase) ?? 'PLANTA',
+      }
+      const updatedOrc: Orcamento = {
+        ...orc,
+        status: 'rascunho',
+        uf: result.uf ?? orc.uf,
+        parametros: orc.parametros
+          ? { ...orc.parametros, terreno: resume.terreno, quartos: resume.quartos, plantaId: '', opcionais: [], personalizacoes: [], modalidadeFinanciamento: resume.modalidade }
+          : undefined,
+        faixaCotacao: undefined,
+      }
+      const orcamentos = session.orcamentos.map(o => o.id === orc.id ? updatedOrc : o)
+      const updated: AppSession = { ...session, orcamentos }
+      saveStorage(updated)
+      setSession(updated)
+      setResumeState(resume)
+      setEditingId(null)
+      setSelectedId(orc.id)
+      return
+    }
+
+    const plantas = loadEngineerData().plantas
+    const planta: PlantaPadrao | undefined = result.planta ?? (orc.parametros ? plantas.find(p => p.id === orc.parametros!.plantaId) : undefined)
+    const newParametros = orc.parametros
+      ? {
+          ...orc.parametros,
+          modalidadeFinanciamento: result.modalidade ?? orc.parametros.modalidadeFinanciamento,
+          terreno: result.terreno ?? orc.parametros.terreno,
+          quartos: result.quartos ?? orc.parametros.quartos,
+          plantaId: planta?.id ?? orc.parametros.plantaId,
+          opcionais: result.opcionais ?? orc.parametros.opcionais,
+          personalizacoes: result.personalizacoes ?? orc.parametros.personalizacoes,
+        }
+      : undefined
+
+    let faixa = orc.faixaCotacao
+    if (planta && newParametros) {
+      const engData = loadEngineerData()
+      const qtv = gerarQuantitativosFromParametros(planta, newParametros.opcionais)
+      faixa = calcularFaixaCotacao(qtv, engData.globalParams, engData.inccMensal, planta.tempoObraMeses)
+    }
+
+    const updatedOrc: Orcamento = {
+      ...orc,
+      uf: result.uf ?? orc.uf,
+      parametros: newParametros,
+      faixaCotacao: faixa,
+    }
+    const orcamentos = session.orcamentos.map(o => o.id === orc.id ? updatedOrc : o)
+    const updated: AppSession = { ...session, orcamentos }
+    saveStorage(updated)
+    setSession(updated)
+    setEditingId(null)
   }
 
   function handleDeleteOrcamento(id: string) {
@@ -77,14 +169,16 @@ export default function Home() {
 
   if (!session.cliente) {
     return (
-      <OnboardingForm
+      <OnboardingChatFlow
+        mode="cadastro"
         onSubmit={handleOnboarding}
+        onLoginExisting={handleLoginExisting}
         onEngineerLogin={() => { saveRole('engenheiro'); setRole('engenheiro') }}
       />
     )
   }
 
-  const selectedOrcamento = selectedId !== 'novo' && selectedId !== 'historico'
+  const selectedOrcamento = selectedId !== 'novo' && selectedId !== 'historico' && selectedId !== 'perfil'
     ? session.orcamentos.find(o => o.id === selectedId)
     : null
 
@@ -92,7 +186,9 @@ export default function Home() {
     ? { name: selectedOrcamento.nome || `Orçamento — ${selectedOrcamento.uf}`, sub: `${selectedOrcamento.uf} · ${selectedOrcamento.status}`, icon: <MdApartment size={22} />, bg: 'bg-accent' }
     : selectedId === 'historico'
       ? { name: 'Meus Orçamentos', sub: `${session.orcamentos.length} salvo(s)`, icon: <MdHistory size={22} />, bg: 'bg-warning' }
-      : { name: 'Ana - ConstruBot', sub: 'Assistente de projetos', icon: <MdSmartToy size={22} />, bg: 'bg-info' }
+      : selectedId === 'perfil'
+        ? { name: 'Meu perfil', sub: 'Atualize suas informações', icon: <MdPerson size={22} />, bg: 'bg-primary' }
+        : { name: 'Ana - ConstruBot', sub: 'Assistente de projetos', icon: <MdSmartToy size={22} />, bg: 'bg-info' }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -125,6 +221,24 @@ export default function Home() {
                   saida={selectedOrcamento.saida}
                   modalidade={selectedOrcamento.parametros?.modalidadeFinanciamento ?? 'SBPE'}
                   onBack={() => setSelectedId('historico')}
+                />
+              ) : selectedOrcamento.status === 'rascunho' && selectedOrcamento.parametros ? (
+                <OrcamentoChatFlow
+                  key={`resume-${selectedOrcamento.id}`}
+                  clienteId={session.cliente.id}
+                  onSaved={handleOrcamentoSaved}
+                  resumeFrom={resumeState ?? {
+                    orcamentoId: selectedOrcamento.id,
+                    modalidade: selectedOrcamento.parametros.modalidadeFinanciamento,
+                    terreno: selectedOrcamento.parametros.terreno,
+                    uf: selectedOrcamento.uf,
+                    quartos: selectedOrcamento.parametros.quartos,
+                    planta: undefined,
+                    opcionais: selectedOrcamento.parametros.opcionais,
+                    personalizacoes: selectedOrcamento.parametros.personalizacoes,
+                    nome: selectedOrcamento.nome,
+                    startPhase: 'PLANTA',
+                  }}
                 />
               ) : selectedOrcamento.status === 'aguardando_engenheiro' ? (
                 <div className="flex flex-col items-center justify-center h-full gap-6 px-6">
@@ -162,12 +276,18 @@ export default function Home() {
                         <div className="loading loading-dots loading-sm" />
                         <p className="text-xs">Aguardando análise detalhada do engenheiro</p>
                       </div>
+                      <button onClick={() => setEditingId(selectedOrcamento.id)} className="btn btn-ghost btn-sm gap-1 text-base-content/60">
+                        <MdEdit size={14} /> Editar informações
+                      </button>
                     </div>
                   ) : (
                     <>
                       <div className="loading loading-dots loading-lg text-primary" />
                       <p className="text-base-content/50 text-sm">Aguardando análise do engenheiro</p>
                       <p className="text-base-content/30 text-xs">Você será notificado quando o resultado estiver pronto</p>
+                      <button onClick={() => setEditingId(selectedOrcamento.id)} className="btn btn-ghost btn-sm gap-1 text-base-content/60">
+                        <MdEdit size={14} /> Editar informações
+                      </button>
                     </>
                   )}
                 </div>
@@ -179,6 +299,13 @@ export default function Home() {
                 />
               )}
             </div>
+          ) : selectedId === 'perfil' ? (
+            <OnboardingChatFlow
+              mode="edicao"
+              existing={session.cliente}
+              onSubmit={handleProfileSave}
+              onCancel={() => setSelectedId('novo')}
+            />
           ) : selectedId === 'historico' ? (
             <div className="h-full overflow-y-auto p-6">
               <div className="max-w-2xl mx-auto">
@@ -213,6 +340,31 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {editingId && (() => {
+        const orc = session.orcamentos.find(o => o.id === editingId)
+        if (!orc || !orc.parametros) return null
+        const plantas = loadEngineerData().plantas
+        const planta = plantas.find(p => p.id === orc.parametros!.plantaId)
+        return (
+          <OrcamentoEditModal
+            open
+            data={{
+              modalidade: orc.parametros.modalidadeFinanciamento,
+              terreno: orc.parametros.terreno,
+              uf: orc.uf,
+              quartos: orc.parametros.quartos,
+              planta,
+              opcionais: orc.parametros.opcionais,
+              personalizacoes: orc.parametros.personalizacoes,
+              faixaAtual: orc.faixaCotacao ? { minimo: orc.faixaCotacao.minimo, maximo: orc.faixaCotacao.maximo } : undefined,
+            }}
+            plantas={plantas}
+            onClose={() => setEditingId(null)}
+            onSave={handleEditSave}
+          />
+        )
+      })()}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MdAdd, MdMoreVert, MdLogout, MdHistory } from 'react-icons/md'
+import { MdAdd, MdMoreVert, MdLogout, MdHistory, MdPerson } from 'react-icons/md'
 import type { Orcamento, OrcamentoStatus } from '@/types'
 
 interface SidebarProps {
@@ -57,6 +57,12 @@ export default function Sidebar({ orcamentos, selectedId, onSelect, onLogout, us
             {menuOpen && (
               <ul className="menu absolute top-full right-0 mt-1 w-44 bg-base-300 rounded-box shadow-xl z-50 border border-secondary p-1">
                 <li>
+                  <button onClick={() => { setMenuOpen(false); onSelect('perfil') }} className="flex items-center gap-2 text-sm">
+                    <MdPerson size={16} className="text-base-content/50" />
+                    Meu perfil
+                  </button>
+                </li>
+                <li>
                   <button onClick={() => { setMenuOpen(false); onLogout() }} className="flex items-center gap-2 text-sm">
                     <MdLogout size={16} className="text-base-content/50" />
                     Sair da conta
@@ -88,7 +94,7 @@ export default function Sidebar({ orcamentos, selectedId, onSelect, onLogout, us
       <button
         onClick={() => onSelect('historico')}
         disabled={orcamentos.length === 0}
-        className={`flex items-center gap-3 px-3 py-3 w-full text-left transition-colors flex-shrink-0 ${selectedId === 'historico' || (selectedId && selectedId !== 'novo' && selectedId !== 'historico') ? 'bg-secondary' : 'hover:bg-base-200'} disabled:opacity-40 disabled:cursor-not-allowed`}
+        className={`flex items-center gap-3 px-3 py-3 w-full text-left transition-colors flex-shrink-0 ${selectedId === 'historico' || (selectedId && selectedId !== 'novo' && selectedId !== 'historico' && selectedId !== 'perfil') ? 'bg-secondary' : 'hover:bg-base-200'} disabled:opacity-40 disabled:cursor-not-allowed`}
       >
         <div className="w-12 h-12 rounded-full bg-warning flex items-center justify-center flex-shrink-0">
           <MdHistory size={22} className="text-warning-content" />

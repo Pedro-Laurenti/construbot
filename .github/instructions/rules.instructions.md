@@ -16,6 +16,7 @@ description: Aply this rules to all prompts
 * The fewer files, the BETTER
 * Whenever logic is repeated, use "utils" (or components) to avoid duplication
 * ALWAYS USE CLEANCODE
+* ALWAYS WRITE IN PORTUGUESE, BRASILIAN - with corrects signals
 
 * ALWAYS USE THIS INPUT IN FRONTEND:
 

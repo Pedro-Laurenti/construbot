@@ -136,6 +136,7 @@ export interface Cliente {
   telefone: string
   email: string
   dataCadastro: string
+  senha?: string
 }
 
 export interface AppSession {
@@ -380,6 +381,9 @@ export interface PlantaPadrao {
   areaConstruidaM2: number
   tempoObraMeses: number
   descricao: string
+  descricaoDetalhada?: string
+  caracteristicas?: string[]
+  imagens?: string[]
   compatibilidadeTerreno: { areaMinima: number; frenteMinima: number }
   servicos: ServicoPlanta[]
 }

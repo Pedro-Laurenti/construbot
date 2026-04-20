@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MdSmartToy, MdDoneAll, MdChevronRight, MdCheck, MdHourglassTop, MdAdd, MdClose, MdImage, MdInfoOutline } from 'react-icons/md'
+import { MdSmartToy, MdDoneAll, MdChevronRight, MdChevronLeft, MdCheck, MdHourglassTop, MdAdd, MdClose, MdImage, MdInfoOutline, MdHome, MdStraighten, MdSchedule, MdBed, MdBuild, MdEdit } from 'react-icons/md'
 import { OPCIONAIS_PADRAO, UF_LIST } from '@/lib/mockData'
 import { loadEngineerData } from '@/lib/storage'
 import { gerarQuantitativosFromParametros, calcularFaixaCotacao } from '@/lib/calculos'
 import { formatCurrency } from '@/lib/formatters'
 import CarrinhoFlutuante, { type CartEditResult } from './CarrinhoFlutuante'
+import OrcamentoEditModal from './OrcamentoEditModal'
 import type {
   Orcamento,
   ModalidadeFinanciamento,
@@ -26,15 +27,16 @@ interface OpcionalRich {
   desvantagensCliente: string
 }
 
-interface ChatMsg {
+export interface ChatMsg {
   id: string
   from: 'bot' | 'user'
   text: string
   timestamp: string
   opcional?: OpcionalRich
+  editKey?: string
 }
 
-type Phase =
+export type Phase =
   | 'START'
   | 'MODALIDADE'
   | 'TERRENO'
@@ -45,21 +47,87 @@ type Phase =
   | 'NOME_PROJETO'
   | 'AGUARDANDO'
 
+export interface ResumeState {
+  orcamentoId: string
+  modalidade: ModalidadeFinanciamento
+  terreno: Terreno
+  uf: string
+  quartos: number
+  planta?: PlantaPadrao
+  opcionais: OpcionalItem[]
+  personalizacoes: Personalizacao[]
+  nome: string
+  startPhase: Phase
+}
+
 interface Props {
   clienteId: string
   onSaved: (orc: Orcamento) => void
+  resumeFrom?: ResumeState
 }
 
-function now() {
+export function now() {
   return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function botMsg(text: string, opcional?: OpcionalRich): ChatMsg {
+export function botMsg(text: string, opcional?: OpcionalRich): ChatMsg {
   return { id: `b-${Date.now()}-${Math.random()}`, from: 'bot', text, timestamp: now(), opcional }
 }
 
-function userMsg(text: string): ChatMsg {
-  return { id: `u-${Date.now()}-${Math.random()}`, from: 'user', text, timestamp: now() }
+export function userMsg(text: string, editKey?: string): ChatMsg {
+  return { id: `u-${Date.now()}-${Math.random()}`, from: 'user', text, timestamp: now(), editKey }
+}
+
+export function calcularDuracaoDigitacao(texto: string): number {
+  return Math.max(400, Math.min(1500, texto.length * 18))
+}
+
+export function TypingBubble() {
+  return (
+    <div className="chat chat-start mb-1">
+      <div className="chat-image">
+        <div className="w-7 h-7 rounded-full bg-info flex items-center justify-center text-white">
+          <MdSmartToy size={14} />
+        </div>
+      </div>
+      <div className="chat-bubble bg-base-300 text-base-content shadow-sm py-2.5">
+        <div className="flex gap-1 items-end h-4">
+          <span className="w-2 h-2 rounded-full bg-base-content/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-2 h-2 rounded-full bg-base-content/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-2 h-2 rounded-full bg-base-content/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function useBotTyping(addMsg: (text: string, opcional?: OpcionalRich) => void) {
+  const addMsgRef = useRef(addMsg)
+  addMsgRef.current = addMsg
+  const [digitando, setDigitando] = useState(false)
+  const fila = useRef<Array<{ text: string; opcional?: OpcionalRich; onDone?: () => void }>>([])
+  const processando = useRef(false)
+
+  function processar() {
+    if (processando.current || fila.current.length === 0) return
+    const prox = fila.current.shift()!
+    processando.current = true
+    setDigitando(true)
+    setTimeout(() => {
+      setDigitando(false)
+      addMsgRef.current(prox.text, prox.opcional)
+      processando.current = false
+      prox.onDone?.()
+      processar()
+    }, calcularDuracaoDigitacao(prox.text))
+  }
+
+  function enviar(text: string, opcional?: OpcionalRich, onDone?: () => void) {
+    fila.current.push({ text, opcional, onDone })
+    processar()
+  }
+
+  return { digitando, enviar }
 }
 
 function OpcionalDetailModal({ item, onClose }: { item: OpcionalRich; onClose: () => void }) {
@@ -95,9 +163,10 @@ function OpcionalDetailModal({ item, onClose }: { item: OpcionalRich; onClose: (
   )
 }
 
-function Bubble({ msg }: { msg: ChatMsg }) {
+export function Bubble({ msg, onEdit }: { msg: ChatMsg; onEdit?: (key: string) => void }) {
   const isUser = msg.from === 'user'
   const [showDetail, setShowDetail] = useState(false)
+  const canEdit = isUser && !!msg.editKey && !!onEdit
   return (
     <>
       <div className={`chat ${isUser ? 'chat-end' : 'chat-start'} mb-1`}>
@@ -142,6 +211,17 @@ function Bubble({ msg }: { msg: ChatMsg }) {
             </div>
           )}
         </div>
+        {canEdit && (
+          <div className="chat-footer">
+            <button
+              onClick={() => onEdit!(msg.editKey!)}
+              className="btn btn-ghost btn-xs gap-1 h-5 min-h-0 px-1.5 text-base-content/50 hover:text-base-content"
+              title="Editar esta informação"
+            >
+              <MdEdit size={11} /> <span className="text-[10px]">editar</span>
+            </button>
+          </div>
+        )}
       </div>
       {showDetail && msg.opcional && <OpcionalDetailModal item={msg.opcional} onClose={() => setShowDetail(false)} />}
     </>
@@ -381,29 +461,202 @@ function QuartosInput({ onSelect }: { onSelect: (q: number) => void }) {
   )
 }
 
+function PlantaCarrossel({ imagens = [], placeholderSlides = 4, heightClass = 'h-32' }: { imagens?: string[]; placeholderSlides?: number; heightClass?: string }) {
+  const count = imagens.length > 0 ? imagens.length : placeholderSlides
+  const [idx, setIdx] = useState(0)
+  const safeIdx = idx % count
+  const next = (e: React.MouseEvent) => { e.stopPropagation(); setIdx(i => (i + 1) % count) }
+  const prev = (e: React.MouseEvent) => { e.stopPropagation(); setIdx(i => (i - 1 + count) % count) }
+  const showNav = count > 1
+  return (
+    <div className={`relative w-full ${heightClass} bg-base-200 rounded-lg overflow-hidden mb-2`}>
+      {imagens.length > 0 ? (
+        <img src={imagens[safeIdx]} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <MdImage size={40} className="text-base-content/20" />
+        </div>
+      )}
+      {showNav && (
+        <>
+          <button
+            onClick={prev}
+            aria-label="Imagem anterior"
+            className="absolute left-1 top-1/2 -translate-y-1/2 btn btn-circle btn-xs bg-base-100/80 border-0 hover:bg-base-100"
+          >
+            <MdChevronLeft size={16} />
+          </button>
+          <button
+            onClick={next}
+            aria-label="Próxima imagem"
+            className="absolute right-1 top-1/2 -translate-y-1/2 btn btn-circle btn-xs bg-base-100/80 border-0 hover:bg-base-100"
+          >
+            <MdChevronRight size={16} />
+          </button>
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1">
+            {Array.from({ length: count }).map((_, i) => (
+              <span
+                key={i}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${i === safeIdx ? 'bg-base-content' : 'bg-base-content/30'}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function PlantaDetalhesModal({ planta, onClose, onSelect }: { planta: PlantaPadrao; onClose: () => void; onSelect: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="card bg-base-100 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="card-body p-0 gap-0">
+          <div className="relative">
+            <PlantaCarrossel imagens={planta.imagens ?? []} heightClass="h-64" />
+            <button onClick={onClose} className="absolute top-2 right-2 btn btn-circle btn-sm bg-base-100/80 border-0 hover:bg-base-100 z-10">
+              <MdClose size={18} />
+            </button>
+          </div>
+          <div className="p-5 pt-0 flex flex-col gap-4">
+            <div>
+              <h3 className="font-bold text-xl text-base-content">{planta.nome}</h3>
+              <p className="text-sm text-base-content/60 mt-1">{planta.descricao}</p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-base-200 rounded-lg p-3 text-center">
+                <MdBed size={20} className="mx-auto text-primary mb-1" />
+                <p className="text-xs text-base-content/50">Quartos</p>
+                <p className="font-bold text-sm">{planta.quartos}</p>
+              </div>
+              <div className="bg-base-200 rounded-lg p-3 text-center">
+                <MdStraighten size={20} className="mx-auto text-primary mb-1" />
+                <p className="text-xs text-base-content/50">Área construída</p>
+                <p className="font-bold text-sm">{planta.areaConstruidaM2} m²</p>
+              </div>
+              <div className="bg-base-200 rounded-lg p-3 text-center">
+                <MdSchedule size={20} className="mx-auto text-primary mb-1" />
+                <p className="text-xs text-base-content/50">Tempo de obra</p>
+                <p className="font-bold text-sm">{planta.tempoObraMeses} meses</p>
+              </div>
+            </div>
+
+            {planta.descricaoDetalhada && (
+              <div>
+                <h4 className="font-semibold text-sm mb-2">Sobre esta planta</h4>
+                <p className="text-sm text-base-content/70 whitespace-pre-line leading-relaxed">{planta.descricaoDetalhada}</p>
+              </div>
+            )}
+
+            {planta.caracteristicas && planta.caracteristicas.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-sm mb-2">Características</h4>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {planta.caracteristicas.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-base-content/70">
+                      <MdCheck size={16} className="text-success flex-shrink-0 mt-0.5" />
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="bg-info/10 border border-info/30 rounded-lg p-3">
+              <p className="text-xs font-semibold text-info mb-1">Compatibilidade de terreno</p>
+              <p className="text-xs text-base-content/60">
+                Área mínima: <strong>{planta.compatibilidadeTerreno.areaMinima} m²</strong> ·
+                Frente mínima: <strong>{planta.compatibilidadeTerreno.frenteMinima} m</strong>
+              </p>
+            </div>
+
+            {planta.servicos.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-sm mb-2 flex items-center gap-1">
+                  <MdBuild size={14} /> Escopo técnico incluído
+                </h4>
+                <p className="text-xs text-base-content/50">
+                  {planta.servicos.length} serviço(s) de construção já dimensionados pelo engenheiro.
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2 border-t border-base-300">
+              <button onClick={onClose} className="btn btn-ghost btn-sm flex-1">Voltar</button>
+              <button onClick={onSelect} className="btn btn-primary btn-sm flex-1 gap-1">
+                <MdCheck size={16} /> Selecionar esta planta
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PlantaCard({ planta, onSelect }: { planta: PlantaPadrao; onSelect: (p: PlantaPadrao) => void }) {
+  const [showDetalhes, setShowDetalhes] = useState(false)
+  const destaque = planta.caracteristicas?.slice(0, 2) ?? []
+  return (
+    <>
+      <div className="bg-base-100 rounded-lg p-3 border border-base-300 hover:border-primary/40 transition-colors">
+        <PlantaCarrossel imagens={planta.imagens ?? []} />
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-base-content flex items-center gap-1">
+              <MdHome size={14} className="text-primary" />
+              {planta.nome}
+            </p>
+            <p className="text-xs text-base-content/60 mt-0.5 line-clamp-2">{planta.descricao}</p>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-2 text-[11px] text-base-content/60">
+          <span className="flex items-center gap-0.5"><MdBed size={12} /> {planta.quartos} quarto{planta.quartos > 1 ? 's' : ''}</span>
+          <span className="flex items-center gap-0.5"><MdStraighten size={12} /> {planta.areaConstruidaM2} m²</span>
+          <span className="flex items-center gap-0.5"><MdSchedule size={12} /> {planta.tempoObraMeses} meses</span>
+        </div>
+        {destaque.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {destaque.map((c, i) => (
+              <span key={i} className="badge badge-ghost badge-sm text-[10px] gap-0.5">
+                <MdCheck size={10} className="text-success" /> {c}
+              </span>
+            ))}
+            {planta.caracteristicas && planta.caracteristicas.length > 2 && (
+              <span className="badge badge-ghost badge-sm text-[10px]">+{planta.caracteristicas.length - 2}</span>
+            )}
+          </div>
+        )}
+        <div className="flex gap-2 mt-3">
+          <button onClick={() => setShowDetalhes(true)} className="btn btn-ghost btn-sm flex-1 gap-1 text-info">
+            <MdInfoOutline size={14} /> Ver detalhes
+          </button>
+          <button onClick={() => onSelect(planta)} className="btn btn-primary btn-sm flex-1 gap-1">
+            Selecionar <MdCheck size={14} />
+          </button>
+        </div>
+      </div>
+      {showDetalhes && (
+        <PlantaDetalhesModal
+          planta={planta}
+          onClose={() => setShowDetalhes(false)}
+          onSelect={() => { setShowDetalhes(false); onSelect(planta) }}
+        />
+      )}
+    </>
+  )
+}
+
 function PlantaInput({ plantas, onSelect, onChangeQuartos }: { plantas: PlantaPadrao[]; onSelect: (p: PlantaPadrao) => void; onChangeQuartos: () => void }) {
   return (
-    <div className="p-4 bg-base-300 flex-shrink-0 overflow-y-auto max-h-[400px]">
+    <div className="p-4 bg-base-300 flex-shrink-0 overflow-y-auto max-h-[480px]">
       <button onClick={onChangeQuartos} className="btn btn-ghost btn-sm w-full mb-3">
         Alterar número de quartos
       </button>
       <div className="flex flex-col gap-3">
         {plantas.map(p => (
-          <div key={p.id} className="bg-base-100 rounded-lg p-3">
-            <div className="w-full h-32 bg-base-200 rounded-lg flex items-center justify-center mb-2">
-              <MdImage size={40} className="text-base-content/20" />
-            </div>
-            <p className="font-semibold text-sm text-base-content">{p.nome}</p>
-            <p className="text-xs text-base-content/60 mt-1">{p.descricao}</p>
-            <div className="flex gap-4 mt-2 text-xs text-base-content/50">
-              <span>{p.areaConstruidaM2} m²</span>
-              <span>{p.tempoObraMeses} meses</span>
-              <span>{p.quartos} quartos</span>
-            </div>
-            <button onClick={() => onSelect(p)} className="btn btn-primary btn-sm w-full mt-2">
-              Selecionar <MdCheck size={16} />
-            </button>
-          </div>
+          <PlantaCard key={p.id} planta={p} onSelect={onSelect} />
         ))}
       </div>
     </div>
@@ -547,26 +800,64 @@ function ModalidadeInput({ onSelect }: { onSelect: (m: ModalidadeFinanciamento) 
   )
 }
 
-export default function OrcamentoChatFlow({ clienteId, onSaved }: Props) {
+export default function OrcamentoChatFlow({ clienteId, onSaved, resumeFrom }: Props) {
   const plantas = loadEngineerData().plantas
 
   const [messages, setMessages] = useState<ChatMsg[]>([])
-  const [phase, setPhase] = useState<Phase>('START')
-  const [nomeOrcamento, setNomeOrcamento] = useState('')
-  const [modalidade, setModalidade] = useState<ModalidadeFinanciamento>('MCMV')
-  const [terreno, setTerreno] = useState<Terreno | null>(null)
-  const [quartos, setQuartos] = useState(0)
-  const [selectedPlanta, setSelectedPlanta] = useState<PlantaPadrao | null>(null)
-  const [opcionais, setOpcionais] = useState<OpcionalItem[]>([])
+  const [phase, setPhase] = useState<Phase>(resumeFrom ? resumeFrom.startPhase : 'START')
+  const [nomeOrcamento, setNomeOrcamento] = useState(resumeFrom?.nome ?? '')
+  const [modalidade, setModalidade] = useState<ModalidadeFinanciamento>(resumeFrom?.modalidade ?? 'MCMV')
+  const [terreno, setTerreno] = useState<Terreno | null>(resumeFrom?.terreno ?? null)
+  const [quartos, setQuartos] = useState(resumeFrom?.quartos ?? 0)
+  const [selectedPlanta, setSelectedPlanta] = useState<PlantaPadrao | null>(resumeFrom?.planta ?? null)
+  const [opcionais, setOpcionais] = useState<OpcionalItem[]>(resumeFrom?.opcionais ?? [])
   const [opcionalIndex, setOpcionalIndex] = useState(0)
-  const [personalizacoes, setPersonalizacoes] = useState<Personalizacao[]>([])
-  const [selectedUf, setSelectedUf] = useState('')
+  const [personalizacoes, setPersonalizacoes] = useState<Personalizacao[]>(resumeFrom?.personalizacoes ?? [])
+  const [selectedUf, setSelectedUf] = useState(resumeFrom?.uf ?? '')
   const [faixaAtual, setFaixaAtual] = useState<{ minimo: number; maximo: number } | undefined>()
+  const [editingStepKey, setEditingStepKey] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+
+  function addBotMsg(text: string, opcional?: OpcionalRich) {
+    setMessages(prev => [...prev, botMsg(text, opcional)])
+  }
+
+  function addUserMsg(text: string, editKey?: string) {
+    setMessages(prev => [...prev, userMsg(text, editKey)])
+  }
+
+  const { digitando, enviar: enviarBot } = useBotTyping(addBotMsg)
+
+  useEffect(() => {
+    if (!resumeFrom) return
+    enviarBot('Vamos continuar seu projeto do ponto em que algumas escolhas precisam ser refeitas.')
+    const resumoLinhas: string[] = []
+    resumoLinhas.push(`Financiamento: ${resumeFrom.modalidade === 'MCMV' ? 'MCMV — Minha Casa Minha Vida' : 'SBPE — Poupança e Empréstimo'}`)
+    resumoLinhas.push(`Terreno: ${resumeFrom.terreno.municipio}${resumeFrom.uf ? '/' + resumeFrom.uf : ''} — ${resumeFrom.terreno.frenteMetros}x${resumeFrom.terreno.fundoMetros}m`)
+    resumoLinhas.push(`Quartos: ${resumeFrom.quartos}`)
+    if (resumeFrom.planta) resumoLinhas.push(`Planta: ${resumeFrom.planta.nome}`)
+    enviarBot(`Resumo atual do seu projeto:\n• ${resumoLinhas.join('\n• ')}`)
+    if (resumeFrom.startPhase === 'PLANTA') {
+      enviarBot('Escolha uma planta compatível com o terreno e quartos atualizados:')
+    } else if (resumeFrom.startPhase === 'QUARTOS') {
+      enviarBot('Quantos quartos você deseja?')
+    } else if (resumeFrom.startPhase === 'OPCIONAIS') {
+      enviarBot('Vamos revisar os opcionais do projeto:', {
+        nome: OPCIONAIS_PADRAO[0].nome,
+        descricao: OPCIONAIS_PADRAO[0].descricao,
+        vantagensCliente: OPCIONAIS_PADRAO[0].vantagensCliente,
+        desvantagensCliente: OPCIONAIS_PADRAO[0].desvantagensCliente,
+      })
+    } else if (resumeFrom.startPhase === 'PERSONALIZACOES') {
+      enviarBot('Deseja adicionar alguma personalização ao projeto?')
+    } else if (resumeFrom.startPhase === 'NOME_PROJETO') {
+      enviarBot('Confirme o nome do projeto para finalizar:')
+    }
+  }, [])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, phase])
+  }, [messages, phase, digitando])
 
   useEffect(() => {
     if (!selectedPlanta) { setFaixaAtual(undefined); return }
@@ -576,71 +867,55 @@ export default function OrcamentoChatFlow({ clienteId, onSaved }: Props) {
     setFaixaAtual({ minimo: faixa.minimo, maximo: faixa.maximo })
   }, [selectedPlanta, opcionais])
 
-  function addBotMsg(text: string, opcional?: OpcionalRich) {
-    setMessages(prev => [...prev, botMsg(text, opcional)])
-  }
-
-  function addUserMsg(text: string) {
-    setMessages(prev => [...prev, userMsg(text)])
-  }
-
   function handleStart() {
-    setMessages([
-      botMsg(
-        'Olá! Sou a Ana, assistente da ConstruBot.\n\nVou te ajudar a planejar o seu projeto de construção. Primeiro, qual a modalidade de financiamento?'
-      ),
-    ])
-    setPhase('MODALIDADE')
+    enviarBot(
+      'Olá! Sou a Ana, assistente da ConstruBot.\n\nVou te ajudar a planejar o seu projeto de construção. Primeiro, qual a modalidade de financiamento?',
+      undefined,
+      () => setPhase('MODALIDADE')
+    )
   }
 
   function handleModalidade(m: ModalidadeFinanciamento) {
     setModalidade(m)
-    addUserMsg(m === 'MCMV' ? 'MCMV — Minha Casa Minha Vida' : 'SBPE — Sistema Brasileiro de Poupança')
-    setTimeout(() => {
-      addBotMsg('Vamos começar pelo terreno. Preencha os dados abaixo:')
-      setPhase('TERRENO')
-    }, 400)
+    addUserMsg(m === 'MCMV' ? 'MCMV — Minha Casa Minha Vida' : 'SBPE — Sistema Brasileiro de Poupança', 'modalidade')
+    enviarBot('Vamos começar pelo terreno. Preencha os dados abaixo:', undefined, () => setPhase('TERRENO'))
   }
 
   function handleTerreno(t: Terreno, uf: string) {
     setTerreno(t)
     setSelectedUf(uf)
     const valor = formatCurrency(t.valorAvaliacao)
-    addUserMsg(`Terreno: ${t.municipio}, ${t.frenteMetros}x${t.fundoMetros}m, ${TOPOGRAFIA_LABELS[t.topografia]}, ${valor}`)
-    setTimeout(() => {
-      addBotMsg('Ótimo! Agora me diga: quantos quartos você deseja na sua casa?')
-      setPhase('QUARTOS')
-    }, 400)
+    addUserMsg(`Terreno: ${t.municipio}, ${t.frenteMetros}x${t.fundoMetros}m, ${TOPOGRAFIA_LABELS[t.topografia]}, ${valor}`, 'terreno')
+    enviarBot('Ótimo! Agora me diga: quantos quartos você deseja na sua casa?', undefined, () => setPhase('QUARTOS'))
   }
 
   function handleQuartos(q: number) {
     setQuartos(q)
-    addUserMsg(`${q} quartos`)
-    setTimeout(() => {
-      if (!terreno) return
-      const compatveis = plantas.filter(
-        p =>
-          p.quartos === q &&
-          p.compatibilidadeTerreno.areaMinima <= terreno.areaTotalM2 &&
-          p.compatibilidadeTerreno.frenteMinima <= terreno.frenteMetros
+    addUserMsg(`${q} quartos`, 'quartos')
+    if (!terreno) return
+    const compatveis = plantas.filter(
+      p =>
+        p.quartos === q &&
+        p.compatibilidadeTerreno.areaMinima <= terreno.areaTotalM2 &&
+        p.compatibilidadeTerreno.frenteMinima <= terreno.frenteMetros
+    )
+    if (compatveis.length === 0) {
+      enviarBot(
+        'Nenhuma planta compatível com o terreno informado e a quantidade de quartos selecionada.\n\nSugestão: verifique as dimensões do terreno ou considere ajustar o número de quartos.',
+        undefined,
+        () => setPhase('QUARTOS')
       )
-      if (compatveis.length === 0) {
-        addBotMsg(
-          'Nenhuma planta compatível com o terreno informado e a quantidade de quartos selecionada.\n\nSugestão: verifique as dimensões do terreno ou considere ajustar o número de quartos.'
-        )
-        setPhase('QUARTOS')
-      } else {
-        addBotMsg(
-          `Com base no seu terreno e na quantidade de quartos, encontrei ${compatveis.length} planta(s) compatível(is). Escolha uma:`
-        )
-        setPhase('PLANTA')
-      }
-    }, 400)
+    } else {
+      enviarBot(
+        `Com base no seu terreno e na quantidade de quartos, encontrei ${compatveis.length} planta(s) compatível(is). Escolha uma:`,
+        undefined,
+        () => setPhase('PLANTA')
+      )
+    }
   }
 
   function handleChangeQuartos() {
-    addBotMsg('Sem problemas! Vamos alterar o número de quartos. Quantos quartos você deseja?')
-    setPhase('QUARTOS')
+    enviarBot('Sem problemas! Vamos alterar o número de quartos. Quantos quartos você deseja?', undefined, () => setPhase('QUARTOS'))
   }
 
   function getCompatiblePlantas(): PlantaPadrao[] {
@@ -655,17 +930,15 @@ export default function OrcamentoChatFlow({ clienteId, onSaved }: Props) {
 
   function handlePlanta(p: PlantaPadrao) {
     setSelectedPlanta(p)
-    addUserMsg(p.nome)
-    setTimeout(() => {
-      setOpcionalIndex(0)
-      setOpcionais([])
-      const first = OPCIONAIS_PADRAO[0]
-      addBotMsg(
-        'Planta selecionada! Agora vou perguntar sobre opcionais para o seu projeto.\n\nDeseja incluir este item?',
-        { nome: first.nome, descricao: first.descricao, vantagensCliente: first.vantagensCliente, desvantagensCliente: first.desvantagensCliente }
-      )
-      setPhase('OPCIONAIS')
-    }, 400)
+    addUserMsg(p.nome, 'planta')
+    setOpcionalIndex(0)
+    setOpcionais([])
+    const first = OPCIONAIS_PADRAO[0]
+    enviarBot(
+      'Planta selecionada! Agora vou perguntar sobre opcionais para o seu projeto.\n\nDeseja incluir este item?',
+      { nome: first.nome, descricao: first.descricao, vantagensCliente: first.vantagensCliente, desvantagensCliente: first.desvantagensCliente },
+      () => setPhase('OPCIONAIS')
+    )
   }
 
   function handleOpcional(sim: boolean) {
@@ -673,79 +946,79 @@ export default function OrcamentoChatFlow({ clienteId, onSaved }: Props) {
     const opcionalCompleto: OpcionalItem = { ...item, selecionado: sim }
     const novosOpcionais = [...opcionais, opcionalCompleto]
     setOpcionais(novosOpcionais)
-    addUserMsg(sim ? `Sim - ${item.nome}` : `Não - ${item.nome}`)
+    addUserMsg(sim ? `Sim - ${item.nome}` : `Não - ${item.nome}`, 'opcionais')
 
     const nextIdx = opcionalIndex + 1
     setOpcionalIndex(nextIdx)
 
-    setTimeout(() => {
-      if (nextIdx < OPCIONAIS_PADRAO.length) {
-        const next = OPCIONAIS_PADRAO[nextIdx]
-        addBotMsg(
-          'Deseja incluir este item?',
-          { nome: next.nome, descricao: next.descricao, vantagensCliente: next.vantagensCliente, desvantagensCliente: next.desvantagensCliente }
-        )
-      } else {
-        const selecionados = novosOpcionais.filter(o => o.selecionado)
-        const resumo =
-          selecionados.length > 0
-            ? `Opcionais selecionados: ${selecionados.map(o => o.nome).join(', ')}`
-            : 'Nenhum opcional selecionado'
-        addBotMsg(`${resumo}\n\nAgora, deseja adicionar alguma personalização ao projeto? Descreva abaixo ou clique em "Nenhuma personalização".`)
-        setPhase('PERSONALIZACOES')
-      }
-    }, 400)
+    if (nextIdx < OPCIONAIS_PADRAO.length) {
+      const next = OPCIONAIS_PADRAO[nextIdx]
+      enviarBot(
+        'Deseja incluir este item?',
+        { nome: next.nome, descricao: next.descricao, vantagensCliente: next.vantagensCliente, desvantagensCliente: next.desvantagensCliente }
+      )
+    } else {
+      const selecionados = novosOpcionais.filter(o => o.selecionado)
+      const resumo =
+        selecionados.length > 0
+          ? `Opcionais selecionados: ${selecionados.map(o => o.nome).join(', ')}`
+          : 'Nenhum opcional selecionado'
+      enviarBot(
+        `${resumo}\n\nAgora, deseja adicionar alguma personalização ao projeto? Descreva abaixo ou clique em "Nenhuma personalização".`,
+        undefined,
+        () => setPhase('PERSONALIZACOES')
+      )
+    }
   }
 
   function handlePersonalizacoes(items: Personalizacao[]) {
     setPersonalizacoes(items)
     if (items.length > 0) {
-      addUserMsg(`Personalizações: ${items.map(p => p.descricao).join('; ')}`)
+      addUserMsg(`Personalizações: ${items.map(p => p.descricao).join('; ')}`, 'personalizacoes')
     } else {
-      addUserMsg('Sem personalizações')
+      addUserMsg('Sem personalizações', 'personalizacoes')
     }
-    setTimeout(() => {
-      addBotMsg('Quase pronto! Escolha um nome para o seu projeto. Ele aparecerá em "Meus Orçamentos" para você identificar facilmente.')
-      setPhase('NOME_PROJETO')
-    }, 400)
+    enviarBot(
+      'Quase pronto! Escolha um nome para o seu projeto. Ele aparecerá em "Meus Orçamentos" para você identificar facilmente.',
+      undefined,
+      () => setPhase('NOME_PROJETO')
+    )
   }
 
   function handleNomeProjeto(nome: string) {
     setNomeOrcamento(nome)
     addUserMsg(nome)
 
-    setTimeout(() => {
-      if (!terreno || !selectedPlanta) return
+    if (!terreno || !selectedPlanta) return
 
-      const engData = loadEngineerData()
-      const qtv = gerarQuantitativosFromParametros(selectedPlanta, opcionais)
-      const faixa = calcularFaixaCotacao(qtv, engData.globalParams, engData.inccMensal, selectedPlanta.tempoObraMeses)
+    const engData = loadEngineerData()
+    const qtv = gerarQuantitativosFromParametros(selectedPlanta, opcionais)
+    const faixa = calcularFaixaCotacao(qtv, engData.globalParams, engData.inccMensal, selectedPlanta.tempoObraMeses)
 
-      const orc: Orcamento = {
-        id: `orc-${Date.now()}`,
-        nome,
-        clienteId,
-        dataCriacao: new Date().toISOString().slice(0, 10),
-        status: 'aguardando_engenheiro',
-        uf: selectedUf || 'SP',
-        itens: [],
-        parametros: {
-          terreno,
-          quartos,
-          plantaId: selectedPlanta.id,
-          opcionais,
-          personalizacoes,
-          modalidadeFinanciamento: modalidade,
-        },
-        faixaCotacao: faixa,
-      }
+    const orc: Orcamento = {
+      id: resumeFrom?.orcamentoId ?? `orc-${Date.now()}`,
+      nome,
+      clienteId,
+      dataCriacao: new Date().toISOString().slice(0, 10),
+      status: 'aguardando_engenheiro',
+      uf: selectedUf || 'SP',
+      itens: [],
+      parametros: {
+        terreno,
+        quartos,
+        plantaId: selectedPlanta.id,
+        opcionais,
+        personalizacoes,
+        modalidadeFinanciamento: modalidade,
+      },
+      faixaCotacao: faixa,
+    }
 
-      addBotMsg(
-        `Projeto "${nome}" registrado com sucesso!\n\nCom base nas informações, estimamos que o valor ficará entre ${formatCurrency(faixa.minimo)} e ${formatCurrency(faixa.maximo)}.\n\nEssa é uma faixa estimada — o valor final depende de decisões técnicas que nosso engenheiro fará para buscar a melhor economia para você e para a construtora.\n\nNosso engenheiro já foi notificado e entrará em contato com o orçamento detalhado.`
-      )
-      setPhase('AGUARDANDO')
-      onSaved(orc)
-    }, 400)
+    enviarBot(
+      `Projeto "${nome}" registrado com sucesso!\n\nCom base nas informações, estimamos que o valor ficará entre ${formatCurrency(faixa.minimo)} e ${formatCurrency(faixa.maximo)}.\n\nEssa é uma faixa estimada — o valor final depende de decisões técnicas que nosso engenheiro fará para buscar a melhor economia para você e para a construtora.\n\nNosso engenheiro já foi notificado e entrará em contato com o orçamento detalhado.`,
+      undefined,
+      () => { setPhase('AGUARDANDO'); onSaved(orc) }
+    )
   }
 
   function handleCartEdit(edited: CartEditResult) {
@@ -761,11 +1034,14 @@ export default function OrcamentoChatFlow({ clienteId, onSaved }: Props) {
       setPersonalizacoes([])
       setOpcionalIndex(0)
       const resetPhase = (edited.resetToPhase as Phase) ?? 'PLANTA'
-      addBotMsg('As configurações foram alteradas pelo carrinho. Algumas escolhas anteriores foram redefinidas. Vamos continuar a partir daqui:')
+      enviarBot(
+        'As configurações foram alteradas pelo carrinho. Algumas escolhas anteriores foram redefinidas. Vamos continuar a partir daqui:',
+        undefined,
+        resetPhase === 'PLANTA' ? undefined : () => setPhase(resetPhase)
+      )
       if (resetPhase === 'PLANTA') {
-        addBotMsg('Escolha uma nova planta compatível com o terreno e quartos atualizados:')
+        enviarBot('Escolha uma nova planta compatível com o terreno e quartos atualizados:', undefined, () => setPhase(resetPhase))
       }
-      setPhase(resetPhase)
       return
     }
 
@@ -845,8 +1121,9 @@ export default function OrcamentoChatFlow({ clienteId, onSaved }: Props) {
           </span>
         </div>
         {messages.map(m => (
-          <Bubble key={m.id} msg={m} />
+          <Bubble key={m.id} msg={m} onEdit={setEditingStepKey} />
         ))}
+        {digitando && <TypingBubble />}
         {phase === 'AGUARDANDO' && (
           <div className="flex flex-col items-center gap-3 mt-6 p-6 bg-base-200 rounded-xl">
             <MdHourglassTop size={40} className="text-warning animate-pulse" />
@@ -869,6 +1146,14 @@ export default function OrcamentoChatFlow({ clienteId, onSaved }: Props) {
         onEdit={handleCartEdit}
         plantas={plantas}
         visible={cartVisible}
+      />
+      <OrcamentoEditModal
+        open={!!editingStepKey}
+        initialStepKey={editingStepKey ?? undefined}
+        data={cartData}
+        plantas={plantas}
+        onClose={() => setEditingStepKey(null)}
+        onSave={(result) => { handleCartEdit(result); setEditingStepKey(null) }}
       />
     </div>
   )

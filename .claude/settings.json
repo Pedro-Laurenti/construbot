@@ -11,7 +11,14 @@
       "Bash(pkill -f \"uvicorn app.main\")",
       "Bash(python3 -c \"from app.main import app; print\\('OK'\\)\")",
       "Bash(kill %1)",
-      "Bash(npx --no-install tsc --noEmit)"
+      "Bash(npx --no-install tsc --noEmit)",
+      "Bash(npx --no-install tsc --noEmit -p tsconfig.json)",
+      "Bash(npx --no-install next lint --dir app --dir components)",
+      "Bash(npx --no-install next lint)",
+      "Bash(npx --no-install next build)",
+      "Bash(/home/pedro/DEVP/construbot/frontend/node_modules/.bin/tsc --noEmit -p /home/pedro/DEVP/construbot/frontend/tsconfig.json)",
+      "Bash(/home/pedro/DEVP/construbot/frontend/node_modules/.bin/next build *)",
+      "Bash(git -C /home/pedro/DEVP/construbot status --short)"
     ]
   }
 }
