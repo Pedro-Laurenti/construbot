@@ -119,5 +119,3 @@ export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout }
     </aside>
   )
 }
-
-export type { EngineerModule }

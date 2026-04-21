@@ -285,6 +285,7 @@ export function gerarQuantitativosFromParametros(
     composicaoProfissionalId: s.composicaoProfissionalId,
     modalidade: 'MEI' as const,
     origem: 'PLANTA_BASE' as const,
+    prazoRequerido: 0,
   }))
   for (const opc of opcionais.filter(o => o.selecionado)) {
     for (const imp of opc.impactoServicos) {

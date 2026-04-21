@@ -13,7 +13,17 @@ export function seedOrcamentoMock(): string {
     uf: 'SP',
     itens: [],
     parametros: {
-      terreno: { areaM2: 200, frenteM: 10, tipoSolo: 'normal' },
+      terreno: {
+        municipio: 'São Paulo',
+        bairro: 'Centro',
+        endereco: 'Rua Exemplo, 100',
+        frenteMetros: 10,
+        fundoMetros: 20,
+        areaTotalM2: 200,
+        topografia: 'PLANO',
+        situacao: 'PROPRIO_QUITADO',
+        valorAvaliacao: 150000,
+      },
       quartos: 3,
       plantaId: 'planta-3q-72',
       opcionais: [],

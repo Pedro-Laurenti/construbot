@@ -63,9 +63,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
   const etapasConcluidas = engData?.etapasConcluidas ?? []
   const parametrosOk = isParametrosCompletos(data)
 
-  const [etapaVisivel, setEtapaVisivel] = useState<EtapaWizard>(
-    etapaAtual === 'E1' || etapaAtual === 'ENTREGUE' ? 'E2' : etapaAtual
-  )
+  const [etapaVisivel, setEtapaVisivel] = useState<EtapaWizard>(etapaAtual)
   const [confirmInvalidar, setConfirmInvalidar] = useState<{ etapa: EtapaWizard; afetadas: EtapaWizard[] } | null>(null)
 
   const planta = orcamento.parametros ? PLANTAS_PADRAO.find(p => p.id === orcamento.parametros!.plantaId) : null

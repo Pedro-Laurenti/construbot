@@ -66,7 +66,7 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
             {orcamentos.map(orc => {
               const badge = ORC_STATUS_BADGE[orc.status]
               const engOrc = data.orcamentosEngenheiro[orc.id]
-              const etapa = engOrc?.etapaAtual ?? '-'
+              const etapa: string = engOrc?.etapaAtual ?? '-'
               const planta = PLANTAS_PADRAO.find(p => p.id === orc.parametros?.plantaId)
               return (
                 <tr key={orc.id} className="hover">
@@ -76,7 +76,7 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
                   <td className="text-xs">{planta?.nome ?? '-'}</td>
                   <td>
                     <span className={`badge badge-xs ${badge.className}`}>
-                      {orc.status === 'em_calculo' && etapa !== '-' ? `Em análise · ${etapa}` : badge.label}
+                      {orc.status === 'em_calculo' && engOrc?.etapaAtual ? `Em análise · ${etapa}` : badge.label}
                     </span>
                   </td>
                   <td className="text-xs font-mono">{etapa}</td>

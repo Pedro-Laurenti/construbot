@@ -364,8 +364,8 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                       <table className="table table-xs">
                         <thead><tr><th>Parcela</th><th className="text-right">Valor</th></tr></thead>
                         <tbody>
-                          {(tabelaAportes.parcelas ?? []).slice(0, 6).map((p, i) => (
-                            <tr key={i}><td className="text-xs">{p.tipo}</td><td className="text-right font-mono text-xs">{formatCurrency(p.valor)}</td></tr>
+                          {(tabelaAportes ?? []).slice(0, 6).map((p, i) => (
+                            <tr key={i}><td className="text-xs">Mês {p.mes}</td><td className="text-right font-mono text-xs">{formatCurrency(p.desembolsoTotal)}</td></tr>
                           ))}
                         </tbody>
                       </table>
