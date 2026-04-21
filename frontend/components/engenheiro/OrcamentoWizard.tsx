@@ -12,7 +12,7 @@ import ConsultaComposicao from './ConsultaComposicao'
 import CalculadoraMO from './CalculadoraMO'
 import CalculadoraMateriais from './CalculadoraMateriais'
 import PrecificacaoFinal from './PrecificacaoFinal'
-import type { EngineerData, Orcamento, OrcamentoEngenheiro } from '@/types'
+import type { EngineerData, Orcamento, OrcamentoEngenheiro, QuantitativoServico } from '@/types'
 
 type EtapaWizard = 'E2' | 'E3' | 'E4' | 'E5' | 'E6'
 
@@ -37,7 +37,8 @@ function getStatusBadge(status: Orcamento['status'], etapaAtual: string) {
 }
 
 function validarE2(eng: OrcamentoEngenheiro): string[] {
-  return eng.quantitativos.filter(q => !q.composicaoBasica || !q.composicaoProfissionalId).map(q => q.descricao)
+  if (eng.quantitativos.length === 0) return ['Nenhum serviço adicionado']
+  return eng.quantitativos.filter(q => !q.composicaoBasica).map(q => q.descricao)
 }
 
 function validarE3(eng: OrcamentoEngenheiro): string[] {
@@ -103,6 +104,17 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
     onUpdate({ orcamentosEngenheiro: updated })
   }
 
+  function concluirE2(quantitativos: QuantitativoServico[]) {
+    const atual = data.orcamentosEngenheiro[orcamento.id]
+    if (!atual) return
+    const concluidas = Array.from(new Set([...atual.etapasConcluidas, 'E2'])) as Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>
+    const log = [...(atual.logEtapas ?? []), { etapa: 'E2', concluidaEm: new Date().toISOString() }]
+    const novoEng: OrcamentoEngenheiro = { ...atual, quantitativos, etapaAtual: 'E3', etapasConcluidas: concluidas, logEtapas: log }
+    const updated = { ...data.orcamentosEngenheiro, [orcamento.id]: novoEng }
+    onUpdate({ orcamentosEngenheiro: updated })
+    setEtapaVisivel('E3')
+  }
+
   function concluirEtapa(etapa: EtapaWizard) {
     const atual = data.orcamentosEngenheiro[orcamento.id]
     if (!atual) return
@@ -166,18 +178,36 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
     quantitativos: [], consultasSINAPI: {}, calculosMO: {}, calculosMat: {},
   }
 
+  const resumoCompacto = orcamento.parametros ? (
+    <p className="text-xs text-base-content/40 mb-2">
+      {orcamento.clienteId} · {orcamento.uf}{planta ? ` · ${planta.nome}` : ''} · SINAPI {data.mesReferenciaSINAPI}
+    </p>
+  ) : null
+
   function renderEtapa() {
     switch (etapaVisivel) {
       case 'E2':
-        return <QuantitativosServico data={data} onUpdate={onUpdate} orcamentos={[orcamento]} orcamentoId={orcamento.id} />
+        return (
+          <>
+            {orcamento.parametros && (
+              <details className="collapse collapse-arrow bg-base-200 rounded mb-4">
+                <summary className="collapse-title text-sm font-medium py-2 px-3 min-h-0">Resumo do cliente</summary>
+                <div className="collapse-content">
+                  <ResumoParametrosCliente parametros={orcamento.parametros} nomeCliente={orcamento.clienteId} />
+                </div>
+              </details>
+            )}
+            <QuantitativosServico data={data} onUpdate={onUpdate} orcamentos={[orcamento]} orcamentoId={orcamento.id} onConcluir={concluirE2} />
+          </>
+        )
       case 'E3':
-        return <ConsultaComposicao uf={orcamento.uf || data.uf} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} />
+        return <>{resumoCompacto}<ConsultaComposicao uf={orcamento.uf || data.uf} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
       case 'E4':
-        return <CalculadoraMO data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} />
+        return <>{resumoCompacto}<CalculadoraMO data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
       case 'E5':
-        return <CalculadoraMateriais data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} />
+        return <>{resumoCompacto}<CalculadoraMateriais data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
       case 'E6':
-        return <PrecificacaoFinal data={data} onUpdate={onUpdate} orcamentos={[orcamento]} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} onEntregar={() => {}} />
+        return <>{resumoCompacto}<PrecificacaoFinal data={data} onUpdate={onUpdate} orcamentos={[orcamento]} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} onEntregar={() => {}} /></>
     }
   }
 
@@ -200,13 +230,6 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
           </div>
           <span className="text-xs text-base-content/40">{formatDate(orcamento.dataCriacao)}</span>
         </div>
-
-        {orcamento.parametros && (
-          <div className="mb-3">
-            <ResumoParametrosCliente parametros={orcamento.parametros} nomeCliente={orcamento.clienteId} />
-          </div>
-        )}
-
         <StepperEtapas
           etapaAtual={engData?.etapaAtual ?? 'E2'}
           etapasConcluidas={etapasConcluidas as Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>}
@@ -219,7 +242,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
         {renderEtapa()}
       </div>
 
-      {etapaVisivel !== 'E6' && (
+      {etapaVisivel !== 'E6' && etapaVisivel !== 'E2' && (
         <div className="bg-base-100 border-t border-base-300 px-6 py-3 flex-shrink-0 flex items-center justify-between">
           <button
             onClick={() => podeVoltar && setEtapaVisivel(ETAPA_ORDEM[idxAtual - 1])}

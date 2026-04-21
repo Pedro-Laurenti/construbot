@@ -116,10 +116,12 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
   const totalServico = cfg ? calcularMatEngenheiro(cfg) : 0
   const totalGeral = Object.values(configs).reduce((s, c) => s + calcularMatEngenheiro(c), 0)
 
+  const salvos = modoWizard ? itensLista.filter(i => !!engData!.calculosMat[i.id]).length : 0
+
   if (itensLista.length === 0) {
     return (
       <div className="flex flex-col gap-4 max-w-5xl">
-        <h2 className="text-xl font-bold">{modoWizard ? 'E5 — Materiais' : 'Calculadora — Materiais'}</h2>
+        <h2 className="text-xl font-bold">{modoWizard ? 'E5 — Custo de Materiais' : 'Calculadora — Materiais'}</h2>
         <div className="card bg-base-100 shadow"><div className="card-body items-center py-12"><p className="text-base-content/40 text-sm">Configure serviços {modoWizard ? 'nos quantitativos (E2)' : 'no Precificador'} primeiro.</p></div></div>
       </div>
     )
@@ -129,8 +131,7 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
     <div className="flex flex-col gap-4 max-w-full">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">{modoWizard ? 'E5 — Materiais' : 'Calculadora — Materiais'}</h2>
-          <p className="text-base-content/50 text-sm">{itensLista.length} serviço(s) · Seção 7</p>
+          <h2 className="text-xl font-bold">{modoWizard ? 'E5 — Custo de Materiais' : 'Calculadora — Materiais'}</h2>
         </div>
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-xs">UF</legend>
@@ -139,6 +140,19 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
           </select>
         </fieldset>
       </div>
+
+      {modoWizard && (
+        <div className="card bg-base-200 p-4 text-sm text-base-content/70">
+          Os insumos abaixo foram importados dos preços confirmados na etapa E3. Revise os coeficientes e ajuste valores caso necessário antes de salvar.
+        </div>
+      )}
+
+      {modoWizard && (
+        <div>
+          <p className="text-xs text-base-content/50">{salvos} de {itensLista.length} serviços com materiais salvos</p>
+          <progress className="progress progress-primary w-full" value={salvos} max={itensLista.length || 1} />
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         {itensLista.map(item => {
@@ -161,22 +175,26 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
             </div>
             <table className="table table-sm">
               <thead>
-                <tr><th>Cód. SINAPI</th><th>Descrição</th><th>UN</th><th className="text-right">Coef./UN</th><th className="text-right">Valor Unit.</th><th className="text-right">Total</th><th></th></tr>
+                  <tr><th>Cód. SINAPI</th><th>Descrição</th><th>UN</th><th className="text-right">Coef./UN</th><th className="text-right">Valor Unit.</th><th className="text-right">Custo/UN</th><th className="text-right">Total</th><th></th></tr>
               </thead>
               <tbody>
                 {cfg.insumos.map((ins, idx) => {
                   const fallback = isFallbackSP(ins.codigoSINAPI)
                   const total = ins.coeficiente * ins.valorUnitario * cfg.quantidade
                   return (
-                    <tr key={idx}>
+                    <tr key={idx} className={fallback ? 'bg-warning/10' : ''}>
                       <td>
-                        <input type="text" value={ins.codigoSINAPI} onChange={e => updateInsumo(selected, idx, 'codigoSINAPI', e.target.value)} className="input input-xs w-24" placeholder="código" />
+                        {modoWizard && ins.codigoSINAPI ? (
+                          <span className="font-mono text-xs">{ins.codigoSINAPI}<span className="badge badge-info badge-xs ml-1">E3</span></span>
+                        ) : (
+                          <input type="text" value={ins.codigoSINAPI} onChange={e => updateInsumo(selected, idx, 'codigoSINAPI', e.target.value)} className="input input-xs w-24" placeholder="código" />
+                        )}
                       </td>
                       <td className="text-xs max-w-[200px] truncate">
                         {ins.descricao || '—'}
                         {fallback && (
                           <span className="badge badge-xs badge-warning ml-1 gap-1">
-                            <MdWarning size={10} /> %AS SP
+                            <MdWarning size={10} /> SP
                           </span>
                         )}
                       </td>
@@ -187,6 +205,7 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
                       <td className="text-right">
                         <input type="number" step="0.01" value={ins.valorUnitario} onChange={e => updateInsumo(selected, idx, 'valorUnitario', parseFloat(e.target.value) || 0)} className={`input input-xs w-24 text-right ${fallback ? 'border-warning' : ''}`} />
                       </td>
+                      <td className="text-right font-mono text-xs">{formatCurrency(ins.coeficiente * ins.valorUnitario)}</td>
                       <td className="text-right font-mono text-xs">{formatCurrency(total)}</td>
                       <td><button onClick={() => removeInsumo(selected, idx)} className="btn btn-ghost btn-xs text-error">×</button></td>
                     </tr>
@@ -194,9 +213,14 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
                 })}
               </tbody>
               <tfoot>
+                <tr>
+                  <td colSpan={6} className="text-right text-xs text-base-content/50">Subtotal de insumos:</td>
+                  <td className="text-right font-mono text-xs">{formatCurrency(totalServico)}</td>
+                  <td />
+                </tr>
                 <tr className="font-bold">
-                  <td colSpan={5} className="text-right">Total do serviço:</td>
-                  <td className="text-right font-mono">{formatCurrency(totalServico)}</td>
+                  <td colSpan={6} className="text-right">Custo unitário ({cfg.unidade}):</td>
+                  <td className="text-right font-mono">{formatCurrency(cfg.quantidade > 0 ? totalServico / cfg.quantidade : 0)}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -210,7 +234,17 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
 
       <div className="card bg-base-100 shadow">
         <div className="card-body p-4">
-          <p className="font-semibold mb-2">Resumo de Materiais</p>
+          <div className="flex gap-4 text-xs text-base-content/50 mb-3 flex-wrap">
+            {itensLista.map(item => {
+              const c = configs[item.id]
+              const t = c ? calcularMatEngenheiro(c) : 0
+              return (
+                <span key={item.id}>
+                  {item.servico.replace(/_/g, ' ')}: <span className="font-mono text-base-content/70">{formatCurrency(t)}</span>
+                </span>
+              )
+            })}
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-base-200 rounded p-3 text-center">
               <p className="text-xs text-base-content/50">Total Materiais</p>

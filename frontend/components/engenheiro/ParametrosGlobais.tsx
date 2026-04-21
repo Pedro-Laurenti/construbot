@@ -80,6 +80,8 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
   const vhQualCom = vhQualSem * fatorEncargos
   const vhServCom = vhServSem * fatorEncargos
 
+  function isAltered(val: number, def: number) { return Math.abs(val - def) > 0.001 }
+
   return (
     <div className="flex flex-col gap-6 max-w-5xl">
       <div className="flex items-center justify-between">
@@ -93,18 +95,30 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
         </div>
       </div>
 
+      <div className="card bg-base-200 p-4 text-sm text-base-content/70">
+        Estes parâmetros são globais — afetam todos os orçamentos do sistema.
+        Altere apenas se houver mudança na legislação trabalhista, tabela SINAPI
+        ou nas condições operacionais da empresa.
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card bg-base-100 shadow">
           <div className="card-body p-4 gap-4">
             <p className="font-semibold">BDI e Metas</p>
             <div className="grid grid-cols-2 gap-3">
               <fieldset className="fieldset">
-                <legend className="fieldset-legend text-xs">BDI (%)</legend>
+                <legend className="fieldset-legend text-xs">
+                  BDI (%){isAltered(params.bdi, GLOBAL_PARAMS.bdi) && <span className="badge badge-warning badge-xs ml-1">alterado</span>}
+                </legend>
                 <input type="number" step="0.01" value={(params.bdi * 100).toFixed(0)} onChange={e => setParams({ ...params, bdi: (parseFloat(e.target.value) || 20) / 100 })} className="input input-sm w-full" />
+                <p className="label">Percentual aplicado sobre o custo direto para formar o preço de venda. Cobre estrutura administrativa, impostos e margem. Padrão: 20%</p>
               </fieldset>
               <fieldset className="fieldset">
-                <legend className="fieldset-legend text-xs">Meta Diária (R$)</legend>
+                <legend className="fieldset-legend text-xs">
+                  Meta Diária (R$){isAltered(params.valorMetaDiario, GLOBAL_PARAMS.valorMetaDiario) && <span className="badge badge-warning badge-xs ml-1">alterado</span>}
+                </legend>
                 <input type="number" step="0.01" value={params.valorMetaDiario} onChange={e => setParams({ ...params, valorMetaDiario: parseFloat(e.target.value) || 220 })} className="input input-sm w-full" />
+                <p className="label">Valor de produção diária que ativa o bônus de performance. Padrão: R$ 220,00</p>
               </fieldset>
               <fieldset className="fieldset">
                 <legend className="fieldset-legend text-xs">Prêmio Máx. Mensal (R$)</legend>
@@ -117,14 +131,17 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
         <div className="card bg-base-100 shadow">
           <div className="card-body p-4 gap-4">
             <p className="font-semibold">Salários Base</p>
+          <p className="text-xs text-base-content/50">Salário base mensal por categoria (Fev/2026, regime desonerado). Custo real = Salário × {fatorEncargos.toFixed(4)}.</p>
             <div className="grid grid-cols-1 gap-2">
               {[
-                { label: 'Qualificado', key: 'salarioQualificado' as keyof GlobalParams },
-                { label: 'Meio-Oficial', key: 'salarioMeioOficial' as keyof GlobalParams },
-                { label: 'Servente', key: 'salarioServente' as keyof GlobalParams },
-              ].map(({ label, key }) => (
+                { label: 'Qualificado', key: 'salarioQualificado' as keyof GlobalParams, def: GLOBAL_PARAMS.salarioQualificado },
+                { label: 'Meio-Oficial', key: 'salarioMeioOficial' as keyof GlobalParams, def: GLOBAL_PARAMS.salarioMeioOficial },
+                { label: 'Servente', key: 'salarioServente' as keyof GlobalParams, def: GLOBAL_PARAMS.salarioServente },
+              ].map(({ label, key, def }) => (
                 <fieldset key={key} className="fieldset">
-                  <legend className="fieldset-legend text-xs">{label} (R$/mês)</legend>
+                  <legend className="fieldset-legend text-xs">
+                    {label} (R$/mês){isAltered(params[key] as number, def) && <span className="badge badge-warning badge-xs ml-1">alterado</span>}
+                  </legend>
                   <input type="number" step="0.01" value={params[key] as number} onChange={e => setParams({ ...params, [key]: parseFloat(e.target.value) || 0 })} className="input input-sm w-full" />
                 </fieldset>
               ))}
@@ -160,18 +177,17 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
         <div className="card-body p-4">
           <p className="font-semibold mb-4">Encargos Sociais — Grupos A a E</p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GrupoTable label="Grupo A — Encargos Básicos" items={grupos.grupoA} grupoKey="grupoA" />
-            <GrupoTable label="Grupo B — Remuneração por Tempo não Trabalhado" items={grupos.grupoB} grupoKey="grupoB" />
-            <GrupoTable label="Grupo C = A × B (calculado)" items={[{ label: 'Grupo C', valor: grupoC }]} readonly nota={`${totalA.toFixed(2)}% × ${totalB.toFixed(2)}% / 100 = ${grupoC.toFixed(2)}%`} />
-            <GrupoTable label="Grupo D — Rescisões" items={grupos.grupoD} grupoKey="grupoD" />
-            <GrupoTable label="Grupo D' (calculado)" items={[{ label: "Grupo D'", valor: grupoD2 }]} readonly nota={`(A - FGTS - SECONCI) × AvisoPrévio / 100 = ${grupoD2.toFixed(2)}%`} />
-            <GrupoTable label="Grupo E — Despesas Indiretas da Obra" items={grupos.grupoE} grupoKey="grupoE" />
+            <GrupoTable label="Grupo A" items={grupos.grupoA} grupoKey="grupoA" nota="Encargos obrigatórios recolhidos mensalmente (INSS, FGTS, SESI, SENAI, etc.)" />
+            <GrupoTable label="Grupo B" items={grupos.grupoB} grupoKey="grupoB" nota="Direitos sobre dias não trabalhados ou com remuneração especial (férias, feriados, 13º, etc.)" />
+            <GrupoTable label="Grupo C" items={[{ label: 'Grupo C', valor: grupoC }]} readonly nota={`Calculado automaticamente: A × B = ${grupoC.toFixed(2)}% — não editável`} />
+            <GrupoTable label="Grupo D" items={grupos.grupoD} grupoKey="grupoD" nota="Provisões para rescisão contratual (aviso prévio, FGTS multa, etc.)" />
+            <GrupoTable label="Grupo D'" items={[{ label: "Grupo D'", valor: grupoD2 }]} readonly nota={`Ajuste automático de FGTS sobre aviso prévio — não editável (${grupoD2.toFixed(2)}%)`} />
+            <GrupoTable label="Grupo E" items={grupos.grupoE} grupoKey="grupoE" nota="Outros benefícios: alimentação, transporte, EPI, seguro de vida" />
           </div>
-          <div className="mt-4 bg-base-200 rounded p-3 flex items-center justify-between">
-            <span className="font-semibold">Total Geral = A + B + C + D + D&apos; + E</span>
-            <span className="font-mono font-bold text-lg">{totalGeral.toFixed(2)}%</span>
+          <div className="mt-4 bg-base-200 rounded p-3">
+            <p className="font-mono text-sm">Total: {totalGeral.toFixed(2)}% → Fator: {fatorEncargos.toFixed(4)}</p>
+            <p className="font-mono text-xs text-base-content/50">Custo Real MO = Salário Base × {fatorEncargos.toFixed(4)}</p>
           </div>
-          <p className="text-xs text-base-content/50 mt-1">Fator de encargos = 1 + Total/100 = {fatorEncargos.toFixed(4)}</p>
         </div>
       </div>
 
@@ -180,7 +196,10 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
           <p className="font-semibold">Referência e Correção</p>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <fieldset className="fieldset">
-              <legend className="fieldset-legend text-xs">UF de execução</legend>
+              <legend className="fieldset-legend text-xs">
+                UF de execução
+                <span className="badge badge-ghost text-xs ml-1">Ref. SINAPI: Jan/2026</span>
+              </legend>
               <select value={data.uf} onChange={e => onUpdate({ uf: e.target.value })} className="select select-sm w-full">
                 {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
               </select>

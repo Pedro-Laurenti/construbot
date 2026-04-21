@@ -147,10 +147,13 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl">
-      <div>
-        <h2 className="text-xl font-bold">E6 — Precificação Final</h2>
-        <p className="text-base-content/50 text-sm">INCC + BDI + Price + Aporte + Entrega</p>
-      </div>
+      <h2 className="text-xl font-bold">E6 — Precificação Final</h2>
+
+      {modoWizard && (
+        <div className="card bg-base-200 p-4 text-sm text-base-content/70">
+          Consolidação dos custos de mão de obra (E4) e materiais (E5), aplicação do INCC e BDI e geração dos valores finais para entrega ao cliente.
+        </div>
+      )}
 
       {!modoWizard && (
         <fieldset className="fieldset">
@@ -176,9 +179,13 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
       {showContent && (
         <>
-          <div className="card bg-base-100 shadow overflow-x-auto">
-            <div className="card-body p-4">
-              <p className="font-semibold mb-3">Bloco 1 — Consolidação de Custos Diretos</p>
+          <details className="collapse collapse-arrow bg-base-100 shadow rounded-2xl">
+            <summary className="collapse-title font-semibold py-3 px-4 min-h-0">
+              Bloco 1 — Consolidação de Custos Diretos
+              <span className="text-xs text-base-content/50 ml-2 font-normal">MEI {formatCurrency(custoDiretoMEI)} · CLT {formatCurrency(custoDiretoCLT)}</span>
+            </summary>
+            <div className="collapse-content overflow-x-auto">
+              <p className="text-xs text-base-content/50 mb-3">Soma de mão de obra (MEI e CLT) e materiais por serviço antes de índices e margens.</p>
               <table className="table table-sm">
                 <thead>
                   <tr>
@@ -218,17 +225,22 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                 ))}
               </div>
             </div>
-          </div>
+          </details>
 
-          <div className="card bg-base-100 shadow">
-            <div className="card-body p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="font-semibold">Bloco 2 — Fluxo de Caixa + INCC</p>
+          <details className="collapse collapse-arrow bg-base-100 shadow rounded-2xl">
+            <summary className="collapse-title font-semibold py-3 px-4 min-h-0">
+              Bloco 2 — Cronograma e Correção INCC
+              <span className="text-xs text-base-content/50 ml-2 font-normal">+{formatCurrency(custoDiretoComInccMEI - custoDiretoMEI)} INCC</span>
+            </summary>
+            <div className="collapse-content">
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-semibold">Bloco 2 — Cronograma e Correção INCC</p>
                 <button onClick={salvarFases} className="btn btn-ghost btn-xs gap-1">
                   {rascunhoSalvo ? <MdCheckCircle size={14} className="text-success" /> : <MdInsertChart size={14} />}
                   Salvar fases
                 </button>
               </div>
+              <p className="text-xs text-base-content/50 mb-2">Distribua os custos por fase para calcular o impacto do INCC ao longo da obra.</p>
               <p className="text-xs text-base-content/50 mb-4">INCC Mensal: {formatPercentual(incc)} | Prazo: {tempoMeses} meses</p>
 
               <div className="overflow-x-auto mb-4">
@@ -286,12 +298,12 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                 </div>
               </div>
             </div>
-          </div>
+          </details>
 
           <div className="card bg-base-100 shadow">
             <div className="card-body p-4">
-              <p className="font-semibold mb-1">Bloco 3 — BDI e Preço Final</p>
-              <p className="text-xs text-base-content/50 mb-4">BDI: {formatPercentual(bdi)} | {areaConstruida} m²</p>
+              <p className="font-semibold mb-1">Bloco 3 — Preço Final com BDI (MEI × CLT)</p>
+              <p className="text-xs text-base-content/50 mb-4">BDI ({formatPercentual(bdi)}) inclui: administração central, tributos sobre faturamento, riscos e imprevistos, lucro. Editável em E1. Área: {areaConstruida} m².</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-primary/10 border border-primary rounded-xl p-5 text-center">
                   <MdAttachMoney className="mx-auto mb-2 text-primary" size={32} />
@@ -314,11 +326,11 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
           <div className="card bg-base-100 shadow">
             <div className="card-body p-4">
-              <p className="font-semibold mb-1">Bloco 4 — Saídas para o Cliente</p>
+              <p className="font-semibold mb-1">Bloco 4 — Entrega ao Cliente</p>
               <p className="text-xs text-base-content/50 mb-4">
                 Modalidade: {clienteModalidade} | Taxa: {formatPercentual(cond.taxaJurosAnual)} a.a. | Prazo: {cond.prazoMaximoMeses}m | Financiável: {formatPercentual(cond.percentualMaximoFinanciavel)}
               </p>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-3 gap-4 mb-4">
                 <div className="card bg-base-200">
                   <div className="card-body p-4 text-center">
                     <MdAccountBalance className="mx-auto mb-2 text-primary" size={28} />
@@ -330,11 +342,21 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                 <div className="card bg-base-200">
                   <div className="card-body p-4 text-center">
                     <MdAttachMoney className="mx-auto mb-2 text-success" size={28} />
-                    <p className="text-xs text-base-content/50">Parcela Price</p>
+                    <p className="text-xs text-base-content/50">Parcela Mensal (Price)</p>
                     <p className="text-xl font-bold font-mono">{formatCurrency(parcelaMEI)}</p>
-                    <p className="text-xs text-base-content/40">{cond.prazoMaximoMeses} meses</p>
+                    <p className="text-xs text-base-content/40">{cond.prazoMaximoMeses} meses — {clienteModalidade}</p>
                   </div>
                 </div>
+                <div className="card bg-base-200">
+                  <div className="card-body p-4 text-center">
+                    <MdInsertChart className="mx-auto mb-2 text-info" size={28} />
+                    <p className="text-xs text-base-content/50">Prazo da Obra</p>
+                    <p className="text-xl font-bold font-mono">{tempoMeses} meses</p>
+                    <p className="text-xs text-base-content/40">{planta?.nome ?? 'planta padrão'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mb-6">
                 <div className="card bg-base-200">
                   <div className="card-body p-4">
                     <p className="text-xs font-semibold mb-2">Tabela de Aportes</p>
@@ -342,7 +364,7 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                       <table className="table table-xs">
                         <thead><tr><th>Parcela</th><th className="text-right">Valor</th></tr></thead>
                         <tbody>
-                          {tabelaAportes.parcelas.slice(0, 6).map((p, i) => (
+                          {(tabelaAportes.parcelas ?? []).slice(0, 6).map((p, i) => (
                             <tr key={i}><td className="text-xs">{p.tipo}</td><td className="text-right font-mono text-xs">{formatCurrency(p.valor)}</td></tr>
                           ))}
                         </tbody>
@@ -372,14 +394,23 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
       {confirmModal && (
         <div className="modal modal-open">
           <div className="modal-box">
-            <p className="font-bold text-lg mb-2">Confirmar entrega</p>
+            <p className="font-bold text-lg mb-2">Confirmar entrega ao cliente</p>
             <p className="text-sm text-base-content/70 mb-4">
-              Ao entregar, o orçamento será marcado como <span className="font-semibold">Entregue</span> e o cliente verá os valores calculados. Esta ação não pode ser desfeita sem reabrir o orçamento.
+              O orçamento será marcado como <span className="font-semibold">Entregue</span> e os valores abaixo serão disponibilizados ao cliente.
             </p>
-            <div className="bg-base-200 rounded p-3 mb-4 text-sm space-y-1">
-              <p>Preço Final MEI: <span className="font-mono font-bold">{formatCurrency(precoFinalMEI)}</span></p>
-              <p>Aporte Mínimo: <span className="font-mono font-bold">{formatCurrency(aaMEI)}</span></p>
-              <p>Parcela Price: <span className="font-mono font-bold">{formatCurrency(parcelaMEI)}/mês</span></p>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-base-200 rounded p-3 text-center">
+                <p className="text-xs text-base-content/50">Aporte Mínimo (AA)</p>
+                <p className="font-mono font-bold">{formatCurrency(aaMEI)}</p>
+              </div>
+              <div className="bg-base-200 rounded p-3 text-center">
+                <p className="text-xs text-base-content/50">Parcela Mensal</p>
+                <p className="font-mono font-bold">{formatCurrency(parcelaMEI)}</p>
+              </div>
+              <div className="bg-base-200 rounded p-3 text-center">
+                <p className="text-xs text-base-content/50">Prazo da Obra</p>
+                <p className="font-mono font-bold">{tempoMeses} meses</p>
+              </div>
             </div>
             <div className="modal-action">
               <button onClick={() => setConfirmModal(false)} className="btn btn-ghost btn-sm">Cancelar</button>

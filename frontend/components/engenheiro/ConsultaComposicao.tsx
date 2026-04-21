@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { COMPOSICOES_ANALITICAS, INSUMOS_SINAPI, UF_LIST } from '@/lib/mockData'
-import { MdWarning, MdCheckCircle } from 'react-icons/md'
+import { MdCheckCircle, MdWarning } from 'react-icons/md'
+import { formatCurrency } from '@/lib/formatters'
 import type { ItemComposicao, OrcamentoEngenheiro, ConsultaSINAPIServico, InsumoResolvido } from '@/types'
 
 interface ResultItem extends ItemComposicao {
@@ -33,6 +34,13 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
 
   const servicos = modoWizard ? engData!.quantitativos : []
   const servicoAtual = modoWizard && servicos.length > 0 ? servicos[servicoIdx] : null
+
+  useEffect(() => {
+    if (!modoWizard || servicos.length === 0) return
+    const primeiroPendente = servicos.findIndex(s => !engData!.consultasSINAPI[s.id])
+    const idx = primeiroPendente >= 0 ? primeiroPendente : 0
+    setServicoIdx(idx)
+  }, [])
 
   useEffect(() => {
     if (servicoAtual?.composicaoBasica) {
@@ -104,27 +112,44 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
 
   const hasFallback = resultado?.itens.some(i => i.isFallbackSP)
   const semPreco = resultado?.itens.filter(i => i.tipoItem === 'INSUMO' && i.custoUnitario <= 0) ?? []
+  const confirmados = modoWizard ? servicos.filter(s => !!engData!.consultasSINAPI[s.id]).length : 0
+
+  const servicoAtualQtd = servicoAtual?.quantidade ?? 1
+  const servicoAtualUN = servicoAtual?.unidade ?? ''
+  const subtotalUnitario = resultado ? resultado.subtotal / servicoAtualQtd : 0
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
-      <div>
-        <h2 className="text-xl font-bold">{modoWizard ? 'E3 — Composições SINAPI' : 'Consulta de Composição com Custo'}</h2>
-        {modoWizard && servicos.length > 0 && (
-          <p className="text-base-content/50 text-sm">{servicoIdx + 1} de {servicos.length} serviços</p>
-        )}
-      </div>
+      <h2 className="text-xl font-bold">{modoWizard ? 'E3 — Preços dos Insumos' : 'Consulta de Composição com Custo'}</h2>
+
+      {modoWizard && (
+        <div className="card bg-base-200 p-4 text-sm text-base-content/70">
+          Os insumos de cada serviço são carregados automaticamente da base SINAPI ({ufSel}).
+          Verifique se os preços refletem a realidade da sua região e edite quando necessário.
+          Estes preços alimentam o cálculo de materiais na etapa E5.
+          Fórmula: Custo = Quantidade × Σ (coeficiente × preço)
+        </div>
+      )}
+
+      {modoWizard && (
+        <div>
+          <p className="text-xs text-base-content/50">{confirmados} de {servicos.length} serviços com preços confirmados</p>
+          <progress className="progress progress-success w-full" value={confirmados} max={servicos.length || 1} />
+        </div>
+      )}
 
       {modoWizard && servicos.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
           {servicos.map((s, idx) => {
             const consultado = !!engData!.consultasSINAPI[s.id]
+            const semComposicao = !s.composicaoBasica
             return (
               <button
                 key={s.id}
                 onClick={() => setServicoIdx(idx)}
-                className={`btn btn-sm gap-1 ${servicoIdx === idx ? 'btn-primary' : 'btn-ghost'}`}
+                className={`btn btn-xs gap-1 ${servicoIdx === idx ? 'btn-primary' : 'btn-ghost'}`}
               >
-                {consultado && <MdCheckCircle size={14} className="text-success" />}
+                {semComposicao ? <MdWarning size={12} className="text-error" /> : consultado && <MdCheckCircle size={12} className="text-success" />}
                 {s.descricao}
               </button>
             )
@@ -132,45 +157,36 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
         </div>
       )}
 
-      <div className="card bg-base-100 shadow">
-        <div className="card-body p-4 gap-4">
-          <div className="flex flex-wrap gap-4">
-            <fieldset className="fieldset">
-              <legend className="fieldset-legend text-xs">Encargos Sociais</legend>
-              <div className="flex gap-2">
-                {(['SEM', 'COM'] as const).map(v => (
-                  <label key={v} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="encargos" value={v} checked={encargos === v} onChange={() => setEncargos(v)} className="radio radio-sm radio-primary" />
-                    <span className="text-sm">{v} ENCARGOS SOCIAIS</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset className="fieldset">
-              <legend className="fieldset-legend text-xs">UF</legend>
-              <select value={ufSel} onChange={e => setUfSel(e.target.value)} className="select select-sm">
-                {UF_LIST.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </fieldset>
-            <fieldset className="fieldset flex-1">
-              <legend className="fieldset-legend text-xs">Código da Composição</legend>
-              <div className="flex gap-2">
-                <input type="text" value={codigo} onChange={e => setCodigo(e.target.value)} onKeyDown={e => e.key === 'Enter' && consultar()} placeholder="Ex: 87888, 87251…" className="input input-sm flex-1" />
-                <button onClick={consultar} className="btn btn-primary btn-sm">Consultar</button>
-              </div>
-            </fieldset>
+      <div className="flex items-center gap-4 flex-wrap mb-3">
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend text-xs">Encargos Sociais</legend>
+          <div className="flex gap-2">
+            {(['SEM', 'COM'] as const).map(v => (
+              <label key={v} className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="encargos" value={v} checked={encargos === v} onChange={() => setEncargos(v)} className="radio radio-sm radio-primary" />
+                <span className="text-sm">{v} ENCARGOS SOCIAIS</span>
+              </label>
+            ))}
           </div>
-        </div>
+        </fieldset>
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend text-xs">UF</legend>
+          <select value={ufSel} onChange={e => setUfSel(e.target.value)} className="select select-sm">
+            {UF_LIST.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </fieldset>
+        {!modoWizard && (
+          <fieldset className="fieldset flex-1">
+            <legend className="fieldset-legend text-xs">Código da Composição</legend>
+            <div className="flex gap-2">
+              <input type="text" value={codigo} onChange={e => setCodigo(e.target.value)} onKeyDown={e => e.key === 'Enter' && consultar()} placeholder="Ex: 87888, 87251…" className="input input-sm flex-1" />
+              <button onClick={consultar} className="btn btn-primary btn-sm">Consultar</button>
+            </div>
+          </fieldset>
+        )}
       </div>
 
       {erro && <div className="alert alert-warning text-sm">{erro}</div>}
-
-      {hasFallback && (
-        <div className="alert alert-warning text-sm flex gap-2 items-center">
-          <MdWarning size={16} />
-          <span>Insumos com preço de SP (fallback %AS) marcados em laranja. Edite o preço se necessário.</span>
-        </div>
-      )}
 
       {semPreco.length > 0 && (
         <div className="alert alert-error text-sm">
@@ -188,7 +204,7 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
               </div>
               {modoWizard && (
                 <button onClick={salvarConsulta} className="btn btn-success btn-sm gap-1">
-                  <MdCheckCircle size={14} /> Salvar para este serviço
+                  <MdCheckCircle size={14} /> Confirmar preços
                 </button>
               )}
             </div>
@@ -196,52 +212,63 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
               <table className="table table-sm">
                 <thead>
                   <tr>
-                    <th>Tipo</th><th>Código</th><th>Descrição</th><th>UN</th>
-                    <th className="text-right">Coef.</th><th className="text-right">Custo Unit.</th>
-                    <th className="text-right">Custo Total</th><th>Estado</th>
+                    <th>Código</th><th>Descrição</th><th>UN</th>
+                    <th className="text-right">Coef.</th>
+                    <th className="text-right">Custo Unit.</th>
+                    <th className="text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {resultado.itens.map((item, idx) => (
-                    <tr key={idx} className={item.tipoItem === 'COMPOSICAO' ? 'bg-base-200/50' : ''}>
-                      <td><span className={`badge badge-xs ${item.tipoItem === 'INSUMO' ? 'badge-info' : 'badge-ghost'}`}>{item.tipoItem}</span></td>
-                      <td className="font-mono text-xs">{item.codigo}</td>
-                      <td className="text-xs">{item.descricao}</td>
-                      <td className="text-xs">{item.unidade}</td>
-                      <td className="text-right font-mono text-xs">{item.coeficiente}</td>
-                      <td className="text-right font-mono text-xs">
-                        {item.tipoItem === 'INSUMO' ? (
-                          <div className="flex items-center gap-1 justify-end">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={item.custoUnitario}
-                              onChange={e => updatePrecoItem(idx, parseFloat(e.target.value) || 0)}
-                              className={`input input-xs w-24 text-right ${item.isFallbackSP ? 'border-warning' : ''}`}
-                            />
-                            {item.isFallbackSP && <span className="badge badge-xs badge-warning">%AS SP</span>}
-                          </div>
-                        ) : (
-                          <span>R$ {item.custoUnitario.toFixed(2)}</span>
-                        )}
-                      </td>
-                      <td className="text-right font-mono text-xs font-semibold">R$ {item.custoTotal.toFixed(2)}</td>
-                      <td>
-                        {item.tipoItem === 'INSUMO' && item.custoUnitario <= 0 && <span className="badge badge-xs badge-error">SEM PREÇO</span>}
-                        {item.tipoItem === 'INSUMO' && item.custoUnitario > 0 && !item.isFallbackSP && <span className="badge badge-xs badge-success">COM PREÇO</span>}
-                        {item.tipoItem === 'INSUMO' && item.isFallbackSP && <span className="badge badge-xs badge-warning">%AS SP</span>}
-                      </td>
-                    </tr>
-                  ))}
+                  {resultado.itens.map((item, idx) => {
+                    const total = item.coeficiente * item.custoUnitario * servicoAtualQtd
+                    return (
+                      <tr key={idx} className={item.isFallbackSP ? 'bg-warning/10' : item.tipoItem === 'COMPOSICAO' ? 'bg-base-200/50' : ''}>
+                        <td><span className="font-mono text-xs">{item.codigo}</span><span className={`badge badge-xs ml-1 ${item.tipoItem === 'INSUMO' ? 'badge-info' : 'badge-ghost'}`}>{item.tipoItem}</span></td>
+                        <td className="text-xs">{item.descricao}</td>
+                        <td className="text-xs">{item.unidade}</td>
+                        <td className="text-right font-mono text-xs">{item.coeficiente}</td>
+                        <td className="text-right font-mono text-xs">
+                          {item.tipoItem === 'INSUMO' ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={item.custoUnitario}
+                                  onChange={e => updatePrecoItem(idx, parseFloat(e.target.value) || 0)}
+                                  className={`input input-xs w-24 text-right ${item.isFallbackSP ? 'border-warning' : ''}`}
+                                />
+                                {item.isFallbackSP && <span className="badge badge-xs badge-warning">SP</span>}
+                                {item.custoUnitario <= 0 && <span className="badge badge-xs badge-error">Sem preço</span>}
+                              </div>
+                              {item.isFallbackSP && (
+                                <p className="label text-xs text-warning">Sem pesquisa em {ufSel} neste período — usando SP como referência</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="font-mono text-xs">{formatCurrency(item.custoUnitario)}</span>
+                          )}
+                        </td>
+                        <td className="text-right font-mono text-xs font-semibold">{formatCurrency(total)}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="font-bold">
-                    <td colSpan={6} className="text-right">Subtotal:</td>
-                    <td className="text-right font-mono">R$ {resultado.subtotal.toFixed(2)}</td>
-                    <td />
+                    <td colSpan={5} className="text-right">Subtotal:</td>
+                    <td className="text-right font-mono">{formatCurrency(resultado.subtotal)}</td>
                   </tr>
                 </tfoot>
               </table>
+            </div>
+            <div className="mt-2 space-y-0.5">
+              <p className="text-xs text-base-content/50 font-mono">
+                Custo total: {servicoAtualQtd} {servicoAtualUN} × Σ(coef × preço) = {formatCurrency(resultado.subtotal)}
+              </p>
+              <p className="text-xs text-base-content/50">
+                Custo unitário: {formatCurrency(subtotalUnitario)} / {servicoAtualUN}
+              </p>
             </div>
           </div>
         </div>

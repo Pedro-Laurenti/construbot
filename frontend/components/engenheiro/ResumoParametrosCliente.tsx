@@ -53,7 +53,7 @@ export default function ResumoParametrosCliente({ parametros, nomeCliente }: Pro
             <div>
               <p className="text-xs text-base-content/50 font-medium mb-1">Financiamento</p>
               <p className="font-semibold">{parametros.modalidadeFinanciamento}</p>
-              <p className="text-xs text-base-content/50">{parametros.terreno.situacao.replace(/_/g, ' ')}</p>
+              <p className="text-xs text-base-content/50">{parametros.terreno.situacao?.replace(/_/g, ' ') ?? '—'}</p>
             </div>
             <div>
               <p className="text-xs text-base-content/50 font-medium mb-1">Opcionais</p>

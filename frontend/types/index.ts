@@ -465,6 +465,15 @@ export interface FluxoCaixaMensal {
   inccAcumulado: number
 }
 
+export interface SINAPIMapping {
+  esp1: string
+  esp2?: string
+  esp3?: string
+  composicaoBasica: string
+  cpIds: number[]
+  prazoRequeridoPadrao: number
+}
+
 export interface QuantitativoServico {
   id: string
   serviceType: ServiceType
@@ -478,6 +487,7 @@ export interface QuantitativoServico {
   composicaoProfissionalId: number
   modalidade: ContratoModalidade
   origem: 'PLANTA_BASE' | 'OPCIONAL' | 'PERSONALIZACAO'
+  prazoRequerido: number
 }
 
 export interface PrecificacaoFinalResult {

@@ -1,4 +1,4 @@
-import type { GlobalParams, ServiceType, Cliente, Orcamento, GruposEncargos, InsumoSINAPI, ComposicaoAnalitica, ComposicaoProfissional, PontoHidraulico, PlantaPadrao, OpcionalItem, ImpactoOpcional, CondicoesFinanciamento, ModalidadeFinanciamento, FaseObra } from '@/types'
+import type { GlobalParams, ServiceType, Cliente, Orcamento, GruposEncargos, InsumoSINAPI, ComposicaoAnalitica, ComposicaoProfissional, PontoHidraulico, PlantaPadrao, OpcionalItem, ImpactoOpcional, CondicoesFinanciamento, ModalidadeFinanciamento, FaseObra, SINAPIMapping } from '@/types'
 
 export const GLOBAL_PARAMS: GlobalParams = {
   bdi: 0.20,
@@ -101,6 +101,83 @@ export const SERVICE_SPEC_LABELS: Partial<Record<ServiceType, { esp1?: string; e
   REVESTIMENTO_CERAMICO:         { esp1: 'Local de aplicação', esp2: 'Formato do revestimento' },
   PINTURA_INTERNA:               { esp1: 'Tipo de produto' },
   PINTURA_EXTERNA:               { esp1: 'Tipo de produto' },
+}
+
+export const SERVICE_SINAPI_MAP: Partial<Record<ServiceType, SINAPIMapping[]>> = {
+  FUNDACAO: [
+    { esp1: 'Sapata Corrida',  composicaoBasica: '104924', cpIds: [],  prazoRequeridoPadrao: 10 },
+    { esp1: 'Radier',          composicaoBasica: '97083',  cpIds: [],  prazoRequeridoPadrao: 8  },
+    { esp1: 'Sapata Isolada',  composicaoBasica: '104924', cpIds: [],  prazoRequeridoPadrao: 8  },
+  ],
+  ALVENARIA: [
+    { esp1: 'Alvenaria Estrutural', esp2: 'Módulo 20 - Vertical/Horizontal', esp3: 'Concreto',  composicaoBasica: '89288',  cpIds: [15], prazoRequeridoPadrao: 20 },
+    { esp1: 'Alvenaria Estrutural', esp2: 'Módulo 20 - Horizontal',          esp3: 'Concreto',  composicaoBasica: '89288',  cpIds: [15], prazoRequeridoPadrao: 20 },
+    { esp1: 'Alvenaria Estrutural', esp2: 'Módulo 15 - Vertical',            esp3: 'Concreto',  composicaoBasica: '104442', cpIds: [16], prazoRequeridoPadrao: 20 },
+    { esp1: 'Alvenaria Estrutural', esp2: 'Módulo 15 - Vertical/Horizontal', esp3: 'Cerâmico',  composicaoBasica: '89289',  cpIds: [17], prazoRequeridoPadrao: 20 },
+    { esp1: 'Alvenaria Estrutural', esp2: 'Módulo 15 - Horizontal',          esp3: 'Cerâmico',  composicaoBasica: '89290',  cpIds: [18], prazoRequeridoPadrao: 20 },
+    { esp1: 'Alvenaria de Vedação', esp2: 'Módulo 20 - Vertical/Horizontal', esp3: 'Cerâmico',  composicaoBasica: '103346', cpIds: [20], prazoRequeridoPadrao: 25 },
+    { esp1: 'Alvenaria de Vedação', esp2: 'Módulo 15 - Vertical/Horizontal', esp3: 'Cerâmico',  composicaoBasica: '103368', cpIds: [19], prazoRequeridoPadrao: 25 },
+  ],
+  GRAUTE: [
+    { esp1: 'Vertical',   composicaoBasica: '89993', cpIds: [21], prazoRequeridoPadrao: 5 },
+    { esp1: 'Horizontal', composicaoBasica: '89995', cpIds: [22], prazoRequeridoPadrao: 5 },
+  ],
+  CONTRAPISO: [
+    { esp1: '', composicaoBasica: '87622', cpIds: [], prazoRequeridoPadrao: 8 },
+  ],
+  REVESTIMENTO_ARGAMASSA_PAREDE: [
+    { esp1: 'Gesso Liso',   esp2: '1,0 cm', composicaoBasica: '87421', cpIds: [39], prazoRequeridoPadrao: 15 },
+    { esp1: 'Massa Pronta', esp2: '1,5 cm', composicaoBasica: '87421', cpIds: [39], prazoRequeridoPadrao: 15 },
+    { esp1: 'Emboço',       esp2: '2,0 cm', composicaoBasica: '87421', cpIds: [39], prazoRequeridoPadrao: 15 },
+  ],
+  REVESTIMENTO_ARGAMASSA_TETO: [
+    { esp1: 'Gesso Liso',   esp2: '1,0 cm', composicaoBasica: '87414', cpIds: [40], prazoRequeridoPadrao: 12 },
+    { esp1: 'Massa Pronta', esp2: '1,5 cm', composicaoBasica: '87414', cpIds: [40], prazoRequeridoPadrao: 12 },
+  ],
+  REVESTIMENTO_CERAMICO: [
+    { esp1: 'Piso Interno',   esp2: 'Cerâmica até 45x45',    composicaoBasica: '87257',  cpIds: [11], prazoRequeridoPadrao: 15 },
+    { esp1: 'Piso Interno',   esp2: 'Porcelanato até 60x60', composicaoBasica: '87263',  cpIds: [11], prazoRequeridoPadrao: 15 },
+    { esp1: 'Piso Interno',   esp2: 'Porcelanato até 90x90', composicaoBasica: '104958', cpIds: [12], prazoRequeridoPadrao: 15 },
+    { esp1: 'Parede Interna', esp2: 'Cerâmica até 45x45',    composicaoBasica: '87257',  cpIds: [4],  prazoRequeridoPadrao: 15 },
+    { esp1: 'Parede Interna', esp2: 'Porcelanato até 60x60', composicaoBasica: '87263',  cpIds: [4],  prazoRequeridoPadrao: 15 },
+  ],
+  PINTURA_INTERNA: [
+    { esp1: 'Selador Acrílico',  composicaoBasica: '88485', cpIds: [7],  prazoRequeridoPadrao: 5 },
+    { esp1: 'Massa Corrida PVA', composicaoBasica: '88495', cpIds: [8],  prazoRequeridoPadrao: 8 },
+    { esp1: 'Tinta Acrílica',    composicaoBasica: '88489', cpIds: [10], prazoRequeridoPadrao: 8 },
+  ],
+  PINTURA_EXTERNA: [
+    { esp1: 'Selador Acrílico', composicaoBasica: '88415', cpIds: [2], prazoRequeridoPadrao: 5 },
+    { esp1: 'Textura Acrílica', composicaoBasica: '88423', cpIds: [3], prazoRequeridoPadrao: 8 },
+  ],
+}
+
+export function resolverSINAPI(
+  serviceType: ServiceType,
+  esp1: string,
+  esp2?: string,
+  esp3?: string
+): SINAPIMapping | null {
+  const opcoes = SERVICE_SINAPI_MAP[serviceType] ?? []
+  return opcoes.find(m =>
+    (!m.esp1 || m.esp1 === esp1) &&
+    (!m.esp2 || m.esp2 === esp2) &&
+    (!m.esp3 || m.esp3 === esp3)
+  ) ?? null
+}
+
+export const SERVICE_HELP: Partial<Record<ServiceType, string>> = {
+  FUNDACAO: 'Estrutura que transfere o peso da construção para o solo. O tipo depende das características do solo e da carga da obra.',
+  ESTRUTURA_CONCRETO: 'Pilares, vigas e lajes que formam o esqueleto resistente da edificação.',
+  ALVENARIA: 'Paredes construídas com blocos. Podem ser estruturais (suportam carga) ou de vedação (apenas fechamento de ambiente).',
+  GRAUTE: 'Concreto fluido que preenche os furos dos blocos de alvenaria estrutural, aumentando a resistência à compressão.',
+  CONTRAPISO: 'Camada de regularização sobre a laje, preparando a base para pisos e revestimentos.',
+  REVESTIMENTO_ARGAMASSA_PAREDE: 'Acabamento das paredes internas com gesso, massa pronta ou emboço. Define a textura final antes da pintura.',
+  REVESTIMENTO_ARGAMASSA_TETO: 'Acabamento do teto com gesso ou massa. Nivela e prepara a superfície para pintura.',
+  REVESTIMENTO_CERAMICO: 'Aplicação de cerâmica ou porcelanato em pisos e paredes. O formato e o local determinam a composição SINAPI.',
+  PINTURA_INTERNA: 'Sequência de produtos aplicados internamente: selador (fixação) → massa corrida (regularização) → tinta (acabamento).',
+  PINTURA_EXTERNA: 'Proteção e acabamento das fachadas externas: selador (fixação) → textura acrílica (proteção e visual).',
+  LIMPEZA_INTERNA: 'Limpeza final da obra antes da entrega ao cliente.',
 }
 
 export const SERVICE_LABELS: Record<ServiceType, string> = {
@@ -302,6 +379,143 @@ export const COMPOSICOES_ANALITICAS: ComposicaoAnalitica[] = [
       { tipoItem: 'INSUMO', codigo: '06028', descricao: 'ACO CA-50 D=6,3MM', unidade: 'KG', coeficiente: 68.0, situacao: 'COM PRECO' },
       { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 5.20, situacao: 'COM CUSTO' },
       { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 6.50, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '104924', grupo: 'FUNDACAO', unidade: 'M3',
+    descricao: 'SAPATA CORRIDA / SAPATA ISOLADA EM CONCRETO ARMADO FCK=25MPA',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00000273', descricao: 'CONCRETO FCK=25MPA', unidade: 'M3', coeficiente: 1.05, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '06028', descricao: 'ACO CA-50 D=6,3MM', unidade: 'KG', coeficiente: 55.0, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 4.80, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 6.00, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '97083', grupo: 'FUNDACAO', unidade: 'M3',
+    descricao: 'RADIER EM CONCRETO SIMPLES FCK=20MPA',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00000273', descricao: 'CONCRETO FCK=25MPA', unidade: 'M3', coeficiente: 1.05, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 3.50, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 5.00, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '97096', grupo: 'FUNDACAO', unidade: 'M3',
+    descricao: 'RADIER EM CONCRETO ARMADO FCK=25MPA',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00000273', descricao: 'CONCRETO FCK=25MPA', unidade: 'M3', coeficiente: 1.05, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '06028', descricao: 'ACO CA-50 D=6,3MM', unidade: 'KG', coeficiente: 42.0, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 4.00, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 5.50, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '89288', grupo: 'ALVENARIA', unidade: 'M2',
+    descricao: 'ALVENARIA ESTRUTURAL BLOCO CONCRETO 14X19X39CM MOD 20 VERTICAL/HORIZONTAL',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '34034', descricao: 'BLOCO CONCRETO 14X19X39', unidade: 'UN', coeficiente: 12.5, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '00001379', descricao: 'CIMENTO CP II-E-32', unidade: 'SC', coeficiente: 0.45, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '04727', descricao: 'AREIA MEDIA LAVADA', unidade: 'M3', coeficiente: 0.09, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.65, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.75, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '104442', grupo: 'ALVENARIA', unidade: 'M2',
+    descricao: 'ALVENARIA ESTRUTURAL BLOCO CONCRETO 14X19X29CM MOD 15 VERTICAL',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '34034', descricao: 'BLOCO CONCRETO 14X19X29', unidade: 'UN', coeficiente: 16.0, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '00001379', descricao: 'CIMENTO CP II-E-32', unidade: 'SC', coeficiente: 0.48, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.70, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.80, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '89993', grupo: 'GRAUTE', unidade: 'M3',
+    descricao: 'GRAUTEAMENTO DE FUROS VERTICAIS EM BLOCOS DE CONCRETO',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00001379', descricao: 'CIMENTO CP II-E-32', unidade: 'SC', coeficiente: 7.5, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '04727', descricao: 'AREIA MEDIA LAVADA', unidade: 'M3', coeficiente: 0.78, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 3.50, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 2.00, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '89995', grupo: 'GRAUTE', unidade: 'M3',
+    descricao: 'GRAUTEAMENTO DE FUROS HORIZONTAIS EM BLOCOS DE CONCRETO',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00001379', descricao: 'CIMENTO CP II-E-32', unidade: 'SC', coeficiente: 7.5, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '04727', descricao: 'AREIA MEDIA LAVADA', unidade: 'M3', coeficiente: 0.78, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 4.00, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 2.50, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '87622', grupo: 'CONTRAPISO', unidade: 'M2',
+    descricao: 'CONTRAPISO EM ARGAMASSA TRAÇO 1:3, E=2CM',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00000875', descricao: 'ARGAMASSA 1:3', unidade: 'M3', coeficiente: 0.022, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.25, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88239', descricao: 'PEDREIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.35, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '87421', grupo: 'REVESTIMENTO', unidade: 'M2',
+    descricao: 'REVESTIMENTO COM GESSO LISO EM PAREDES INTERNAS E=1,5CM',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '07402', descricao: 'GESSO EM PO', unidade: 'SC', coeficiente: 2.40, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88309', descricao: 'GESSEIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.55, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.20, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '87414', grupo: 'REVESTIMENTO', unidade: 'M2',
+    descricao: 'REVESTIMENTO COM GESSO LISO EM TETOS E=1,5CM',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '07402', descricao: 'GESSO EM PO', unidade: 'SC', coeficiente: 2.60, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88309', descricao: 'GESSEIRO COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.75, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.25, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '87257', grupo: 'REVESTIMENTO_CERAMICO', unidade: 'M2',
+    descricao: 'REVESTIMENTO PISO CERÂMICA ATÉ 45X45CM COM ARGAMASSA COLANTE AC-II',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00003381', descricao: 'CERAMICA PISO ATÉ 45X45', unidade: 'M2', coeficiente: 1.05, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '37540', descricao: 'ARGAMASSA COLANTE AC-II', unidade: 'SC', coeficiente: 0.60, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.45, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88294', descricao: 'AZULEJISTA COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.75, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '87263', grupo: 'REVESTIMENTO_CERAMICO', unidade: 'M2',
+    descricao: 'REVESTIMENTO PISO PORCELANATO ATÉ 60X60CM COM ARGAMASSA COLANTE AC-III',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '00003382', descricao: 'PORCELANATO ATÉ 60X60', unidade: 'M2', coeficiente: 1.05, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '37540', descricao: 'ARGAMASSA COLANTE AC-III', unidade: 'SC', coeficiente: 0.65, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.50, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88294', descricao: 'AZULEJISTA COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.85, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '88489', grupo: 'PINTURA', unidade: 'M2',
+    descricao: 'PINTURA TINTA ACRÍLICA INTERNA — SELADOR + MASSA CORRIDA + 2 DEMÃOS',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '04625', descricao: 'TINTA ACRILICA 18L', unidade: 'LT', coeficiente: 0.18, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '07613', descricao: 'SELADOR ACRILICO 18L', unidade: 'LT', coeficiente: 0.10, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.08, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88268', descricao: 'PINTOR COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.35, situacao: 'COM CUSTO' },
+    ],
+  },
+  {
+    codigoComposicao: '88423', grupo: 'PINTURA', unidade: 'M2',
+    descricao: 'PINTURA TEXTURA ACRÍLICA EXTERNA — FUNDO PREPARADOR + TEXTURA + ACABAMENTO',
+    itens: [
+      { tipoItem: 'INSUMO', codigo: '04625', descricao: 'TEXTURA ACRILICA 18L', unidade: 'LT', coeficiente: 0.25, situacao: 'COM PRECO' },
+      { tipoItem: 'INSUMO', codigo: '07613', descricao: 'FUNDO PREPARADOR 18L', unidade: 'LT', coeficiente: 0.12, situacao: 'COM PRECO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88316', descricao: 'SERVENTE COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.10, situacao: 'COM CUSTO' },
+      { tipoItem: 'COMPOSICAO', codigo: '88268', descricao: 'PINTOR COM ENCARGOS SOCIAIS', unidade: 'H', coeficiente: 0.40, situacao: 'COM CUSTO' },
     ],
   },
 ]
