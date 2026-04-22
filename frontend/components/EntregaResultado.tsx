@@ -76,6 +76,7 @@ export default function EntregaResultado({ saida, modalidade, onBack }: Props) {
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-base-content/40 px-1">
         <span>Prazo total: {saida.prazoTotalObraMeses} meses</span>
         <span>Preço total (com BDI): {formatCurrency(saida.precoFinalObra)}</span>
+        {saida.sinapiRef && <span>Referência SINAPI: {saida.sinapiRef}</span>}
       </div>
     </div>
   )

@@ -17,6 +17,7 @@ export default function Precificador({ data, onUpdate }: Props) {
   const { precificadorItens } = data
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState<Omit<PrecificadorItem, 'id'>>(emptyItem())
+  const canAdd = form.quantidade > 0 && !!form.composicaoProfissionalId && !!form.composicaoBasica.trim()
 
   function addItem() {
     const id = `svc-${Date.now()}`
@@ -59,6 +60,9 @@ export default function Precificador({ data, onUpdate }: Props) {
         </div>
       ) : (
         <div className="card bg-base-100 shadow overflow-x-auto">
+          <div className="sticky left-0 pointer-events-none h-0">
+            <div className="absolute right-0 top-0 h-full w-4 bg-gradient-to-l from-base-100/90 to-transparent" />
+          </div>
           <table className="table table-sm">
             <thead>
               <tr>
@@ -72,7 +76,7 @@ export default function Precificador({ data, onUpdate }: Props) {
                 const comp = COMPOSICOES_PROFISSIONAIS.find(c => c.id === item.composicaoProfissionalId)
                 return (
                   <tr key={item.id} className="hover">
-                    <td className="text-xs font-semibold">{SERVICO_LABELS[item.servico] ?? item.servico}</td>
+                    <td className="text-xs font-semibold sticky left-0 bg-base-100 z-10">{SERVICO_LABELS[item.servico] ?? item.servico}</td>
                     <td className="font-mono text-xs">{item.quantidade}</td>
                     <td className="text-xs">{item.especificacao1 || '—'}</td>
                     <td className="text-xs">{item.especificacao2 || '—'}</td>
@@ -96,7 +100,7 @@ export default function Precificador({ data, onUpdate }: Props) {
 
       {showModal && (
         <div className="modal modal-open">
-          <div className="modal-box max-w-lg">
+          <div className="modal-box max-w-lg max-h-[85vh] overflow-y-auto">
             <h3 className="font-bold text-lg mb-4">Adicionar Serviço</h3>
             <div className="grid grid-cols-2 gap-3">
               <fieldset className="fieldset col-span-2">
@@ -141,7 +145,7 @@ export default function Precificador({ data, onUpdate }: Props) {
             </div>
             <div className="modal-action">
               <button onClick={() => setShowModal(false)} className="btn btn-ghost btn-sm">Cancelar</button>
-              <button onClick={addItem} disabled={form.quantidade <= 0} className="btn btn-primary btn-sm">Adicionar</button>
+              <button onClick={addItem} disabled={!canAdd} className="btn btn-primary btn-sm">Adicionar</button>
             </div>
           </div>
         </div>

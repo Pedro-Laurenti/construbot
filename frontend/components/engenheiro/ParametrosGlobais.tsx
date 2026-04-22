@@ -11,12 +11,7 @@ interface Props { data: EngineerData; onUpdate: (p: Partial<EngineerData>) => vo
 
 function sumGrupo(items: ItemGrupoEncargo[]) { return items.reduce((s, i) => s + i.valor, 0) }
 
-export default function ParametrosGlobais({ data, onUpdate }: Props) {
-  const { globalParams: p, gruposEncargos: g } = data
-  const [showInfo, setShowInfo] = useState(false)
-  const [params, setParams] = useState<GlobalParams>(p)
-  const [grupos, setGrupos] = useState<GruposEncargos>(g)
-
+function calcularTotaisEncargos(grupos: GruposEncargos) {
   const totalA = sumGrupo(grupos.grupoA)
   const totalB = sumGrupo(grupos.grupoB)
   const grupoC = (totalA * totalB) / 100
@@ -28,21 +23,45 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
   const totalE = sumGrupo(grupos.grupoE)
   const totalGeral = totalA + totalB + grupoC + totalD + grupoD2 + totalE
   const fatorEncargos = 1 + totalGeral / 100
+  return { totalA, totalB, grupoC, totalD, grupoD2, totalE, totalGeral, fatorEncargos }
+}
+
+export default function ParametrosGlobais({ data, onUpdate }: Props) {
+  const { globalParams: p, gruposEncargos: g } = data
+  const [showInfo, setShowInfo] = useState(false)
+  const [confirmRestore, setConfirmRestore] = useState(false)
+  const [params, setParams] = useState<GlobalParams>(p)
+  const [grupos, setGrupos] = useState<GruposEncargos>(g)
+
+  const { grupoC, grupoD2, totalGeral, fatorEncargos } = calcularTotaisEncargos(grupos)
 
   function updateGrupoItem(grupo: keyof GruposEncargos, idx: number, valor: number) {
-    const updated = { ...grupos, [grupo]: grupos[grupo].map((item, i) => i === idx ? { ...item, valor } : item) }
+    const updatedBase = { ...grupos, [grupo]: grupos[grupo].map((item, i) => i === idx ? { ...item, valor } : item) }
+    const novosTotais = calcularTotaisEncargos(updatedBase)
+    const updated = {
+      ...updatedBase,
+      grupoC: [{ label: 'Grupo C', valor: Number(novosTotais.grupoC.toFixed(2)) }],
+      grupoDLinha: [{ label: "Grupo D'", valor: Number(novosTotais.grupoD2.toFixed(2)) }],
+    }
     setGrupos(updated)
-    const newFator = fatorEncargos
-    const newEnc = totalGeral / 100
-    const updatedParams = { ...params, encargosPercentual: newEnc, fatorEncargos: newFator }
+    const updatedParams = { ...params, fatorEncargos: novosTotais.fatorEncargos }
     setParams(updatedParams)
     onUpdate({ gruposEncargos: updated, globalParams: updatedParams })
   }
 
   function saveParams() {
+    const mudouFatores =
+      Math.abs(data.globalParams.fatorEncargos - params.fatorEncargos) > 0.0001 ||
+      Math.abs(data.globalParams.bdi - params.bdi) > 0.0001 ||
+      Math.abs(data.globalParams.salarioQualificado - params.salarioQualificado) > 0.01 ||
+      Math.abs(data.globalParams.salarioServente - params.salarioServente) > 0.01
+    const orcamentosAtualizados = mudouFatores
+      ? Object.fromEntries(Object.entries(data.orcamentosEngenheiro).map(([id, orc]) => [id, { ...orc, parametrosObsoletos: true }]))
+      : data.orcamentosEngenheiro
     onUpdate({
       globalParams: params,
       gruposEncargos: grupos,
+      orcamentosEngenheiro: orcamentosAtualizados,
       auditTrail: appendAuditEvent(data, {
         usuario: 'engenheiro_local',
         modulo: 'parametros-globais',
@@ -53,6 +72,7 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
   }
 
   function restore() {
+    const beforeValue = JSON.stringify({ globalParams: params, gruposEncargos: grupos })
     setParams(GLOBAL_PARAMS)
     setGrupos(DEFAULT_GRUPOS_ENCARGOS)
     onUpdate({
@@ -62,9 +82,10 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
         usuario: 'engenheiro_local',
         modulo: 'parametros-globais',
         acao: 'restaurar_padrao',
-        impacto: 'parametros_globais',
+        impacto: `parametros_globais:${beforeValue}`,
       }),
     })
+    setConfirmRestore(false)
   }
 
   function GrupoTable({ label, items, grupoKey, readonly, nota }: { label: string; items: ItemGrupoEncargo[] | { label: string; valor: number }[]; grupoKey?: keyof GruposEncargos; readonly?: boolean; nota?: string }) {
@@ -100,8 +121,8 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
 
   const vhQualSem = params.salarioQualificado / (22 * 8)
   const vhServSem = params.salarioServente / (22 * 8)
-  const vhQualCom = vhQualSem * fatorEncargos
-  const vhServCom = vhServSem * fatorEncargos
+  const vhQualCom = vhQualSem * params.fatorEncargos
+  const vhServCom = vhServSem * params.fatorEncargos
 
   function isAltered(val: number, def: number) { return Math.abs(val - def) > 0.001 }
 
@@ -113,7 +134,7 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
           <p className="text-base-content/50 text-sm">Configurações de cálculo do sistema</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={restore} className="btn btn-ghost btn-sm">Restaurar Padrões</button>
+          <button onClick={() => setConfirmRestore(true)} className="btn btn-ghost btn-sm">Restaurar Padrões</button>
           <button onClick={saveParams} className="btn btn-primary btn-sm">Salvar</button>
         </div>
       </div>
@@ -122,12 +143,12 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
         <div className="card bg-base-100 shadow">
           <div className="card-body p-4 gap-4">
             <p className="font-semibold">BDI e Metas</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <fieldset className="fieldset">
                 <legend className="fieldset-legend text-xs">
                   BDI (%){isAltered(params.bdi, GLOBAL_PARAMS.bdi) && <span className="badge badge-warning badge-xs ml-1">alterado</span>}
                 </legend>
-                <input type="number" step="0.01" value={(params.bdi * 100).toFixed(0)} onChange={e => setParams({ ...params, bdi: (parseFloat(e.target.value) || 20) / 100 })} className="input input-sm w-full" />
+                <input type="number" step="0.01" value={(params.bdi * 100).toFixed(0)} onChange={e => setParams({ ...params, bdi: (parseFloat(e.target.value) || 20) / 100 })} className={`input input-sm w-full ${params.bdi < 0 ? 'input-error' : ''}`} />
                 <p className="label">Percentual aplicado sobre o custo direto para formar o preço de venda. Cobre estrutura administrativa, impostos e margem. Padrão: 20%</p>
               </fieldset>
               <fieldset className="fieldset">
@@ -178,7 +199,7 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
               { l: 'Vh Servente c/enc', v: `R$ ${vhServCom.toFixed(2)}/h` },
               { l: 'Qualificado c/enc (mês)', v: formatCurrency(params.salarioQualificado * fatorEncargos) },
               { l: 'Servente c/enc (mês)', v: formatCurrency(params.salarioServente * fatorEncargos) },
-              { l: 'Fator Encargos', v: fatorEncargos.toFixed(4) },
+              { l: 'Fator Encargos', v: params.fatorEncargos.toFixed(4) },
               { l: 'Total Encargos', v: `${totalGeral.toFixed(2)}%` },
             ].map(({ l, v }) => (
               <div key={l} className="bg-base-200 rounded p-2">
@@ -202,8 +223,9 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
             <GrupoTable label="Grupo E" items={grupos.grupoE} grupoKey="grupoE" nota="Outros benefícios: alimentação, transporte, EPI, seguro de vida" />
           </div>
           <div className="mt-4 bg-base-200 rounded p-3">
-            <p className="font-mono text-sm">Total: {totalGeral.toFixed(2)}% → Fator: {fatorEncargos.toFixed(4)}</p>
-            <p className="font-mono text-xs text-base-content/50">Custo Real MO = Salário Base × {fatorEncargos.toFixed(4)}</p>
+            <p className="font-mono text-sm">Total: {totalGeral.toFixed(2)}% → Fator: {params.fatorEncargos.toFixed(4)}</p>
+            <p className="font-mono text-xs text-base-content/50">Custo Real MO = Salário Base × {params.fatorEncargos.toFixed(4)}</p>
+            <p className="font-mono text-xs text-base-content/50">Fator calculado: {fatorEncargos.toFixed(4)} · Fator salvo: {params.fatorEncargos.toFixed(4)}</p>
           </div>
         </div>
       </div>
@@ -266,6 +288,19 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
             <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
           </div>
           <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
+        </div>
+      )}
+      {confirmRestore && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">Confirmar restauração</h3>
+            <p className="text-sm text-base-content/70">Esta ação irá substituir os parâmetros atuais pelos valores padrão.</p>
+            <div className="modal-action">
+              <button onClick={() => setConfirmRestore(false)} className="btn btn-sm btn-ghost">Cancelar</button>
+              <button onClick={restore} className="btn btn-sm btn-error">Restaurar</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setConfirmRestore(false)} />
         </div>
       )}
     </div>

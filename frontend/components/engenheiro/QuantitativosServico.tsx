@@ -88,11 +88,12 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
         field === 'especificacao2' ? value : r.especificacao2,
         field === 'especificacao3' ? value : r.especificacao3,
       )
-      if (mapeado) {
+      const podeSobrescrever = r.origem === 'PLANTA_BASE' && !r.composicaoManual
+      if (mapeado && podeSobrescrever) {
         next.composicaoBasica = mapeado.composicaoBasica
         next.composicaoProfissionalId = mapeado.cpIds[0] ?? r.composicaoProfissionalId
         next.prazoRequerido = mapeado.prazoRequeridoPadrao
-      } else {
+      } else if (!mapeado && podeSobrescrever) {
         next.composicaoBasica = ''
         next.composicaoProfissionalId = 0
       }
@@ -111,10 +112,13 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
       especificacao2: '',
       especificacao3: '',
       composicaoBasica: '',
+      composicaoManual: true,
       composicaoProfissionalId: 0,
       modalidade: 'MEI',
+      modalidadeAjudante: 'CLT',
+      adicionalProdutividade: 1.3,
       origem: 'PERSONALIZACAO',
-      prazoRequerido: 0,
+      prazoRequerido: 1,
     }
     setQtRows(prev => [...prev, novo])
   }
@@ -226,7 +230,7 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
                               <legend className="fieldset-legend">Composição SINAPI</legend>
                               <input type="text" className="input input-xs w-28 font-mono border-warning"
                                 placeholder="ex: 87557" value={row.composicaoBasica}
-                                onChange={e => updateRow(idx, { composicaoBasica: e.target.value })} />
+                                onChange={e => updateRow(idx, { composicaoBasica: e.target.value, composicaoManual: true })} />
                             </fieldset>
                           )}
                         </div>

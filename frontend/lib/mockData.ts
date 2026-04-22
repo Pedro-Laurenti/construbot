@@ -2,7 +2,6 @@ import type { GlobalParams, ServiceType, Cliente, Orcamento, GruposEncargos, Ins
 
 export const GLOBAL_PARAMS: GlobalParams = {
   bdi: 0.20,
-  encargosPercentual: 1.6013,
   fatorEncargos: 2.6013,
   salarioQualificado: 2664.75,
   salarioMeioOficial: 2427.36,
@@ -284,19 +283,25 @@ export const DEFAULT_GRUPOS_ENCARGOS: GruposEncargos = {
     { label: 'SECONCI', valor: 1.00 },
   ],
   grupoB: [
-    { label: 'DSR', valor: 18.13 },
+    { label: 'DSR', valor: 18.03 },
     { label: 'Feriados', valor: 8.00 },
-    { label: 'Férias + 1/3 Constitucional', valor: 15.10 },
+    { label: 'Férias + 1/3 Constitucional', valor: 12.10 },
     { label: 'Aux. Enfermidade/Acidentes', valor: 2.58 },
     { label: '13° Salário', valor: 11.33 },
     { label: 'Lic. Paternidade', valor: 0.13 },
     { label: 'Faltas Justificadas', valor: 0.76 },
+  ],
+  grupoC: [
+    { label: 'Grupo C', valor: 14.71 },
   ],
   grupoD: [
     { label: 'Aviso Prévio', valor: 11.56 },
     { label: 'Depósito Despedida Injusta', valor: 3.08 },
     { label: 'Indenização Adicional', valor: 0.78 },
     { label: 'LC 110/01', valor: 0.77 },
+  ],
+  grupoDLinha: [
+    { label: "Grupo D'", valor: 2.17 },
   ],
   grupoE: [
     { label: 'Dias de chuva', valor: 1.50 },

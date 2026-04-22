@@ -9,13 +9,38 @@ interface Props { data: EngineerData; orcamentos: Orcamento[] }
 
 export default function ConsolidacaoOrcamento({ data, orcamentos }: Props) {
   const { precificadorItens, calculoMOResults, calculoMatConfigs, globalParams } = data
-  const [vinculadoId, setVinculadoId] = useState('')
+  const [sortBy, setSortBy] = useState<'servico' | 'quantidade' | 'moMEI' | 'moCLT' | 'mat' | 'total'>('servico')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const itensComResultado = precificadorItens.filter(i => calculoMOResults[i.id])
   const areaTotal = precificadorItens.reduce((s, i) => s + i.quantidade, 0)
   const consolidado = itensComResultado.length > 0
     ? consolidarEngenheiro('local', 'local', calculoMOResults, calculoMatConfigs, areaTotal, globalParams.bdi)
     : null
+  const linhasOrdenadas = [...itensComResultado].sort((a, b) => {
+    const moA = calculoMOResults[a.id]
+    const moB = calculoMOResults[b.id]
+    const matA = calculoMatConfigs[a.id] ? calcularMatEngenheiro(calculoMatConfigs[a.id]) : 0
+    const matB = calculoMatConfigs[b.id] ? calcularMatEngenheiro(calculoMatConfigs[b.id]) : 0
+    const totalA = (moA?.custoFinalMEI ?? 0) + matA
+    const totalB = (moB?.custoFinalMEI ?? 0) + matB
+    const mult = sortDir === 'asc' ? 1 : -1
+    if (sortBy === 'servico') return a.servico.localeCompare(b.servico) * mult
+    if (sortBy === 'quantidade') return (a.quantidade - b.quantidade) * mult
+    if (sortBy === 'moMEI') return ((moA?.custoFinalMEI ?? 0) - (moB?.custoFinalMEI ?? 0)) * mult
+    if (sortBy === 'moCLT') return ((moA?.custoFinalCLT ?? 0) - (moB?.custoFinalCLT ?? 0)) * mult
+    if (sortBy === 'mat') return (matA - matB) * mult
+    return (totalA - totalB) * mult
+  })
+
+  function toggleSort(key: typeof sortBy) {
+    if (sortBy === key) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+      return
+    }
+    setSortBy(key)
+    setSortDir('asc')
+  }
 
   function exportarJSON() {
     const payload = { consolidado, precificadorItens, calculoMOResults, calculoMatConfigs, globalParams, exportadoEm: new Date().toISOString() }
@@ -49,10 +74,19 @@ export default function ConsolidacaoOrcamento({ data, orcamentos }: Props) {
               <p className="font-semibold mb-3">Por Serviço</p>
               <table className="table table-sm">
                 <thead>
-                  <tr><th>Serviço</th><th className="text-right">Qtd.</th><th>UN</th><th className="text-right">MO MEI</th><th className="text-right">MO CLT</th><th className="text-right">Materiais</th><th className="text-right">Total MEI</th><th className="text-right">Total CLT</th></tr>
+                  <tr>
+                    <th><button onClick={() => toggleSort('servico')} className="btn btn-ghost btn-xs">Serviço</button></th>
+                    <th className="text-right"><button onClick={() => toggleSort('quantidade')} className="btn btn-ghost btn-xs">Qtd.</button></th>
+                    <th>UN</th>
+                    <th className="text-right"><button onClick={() => toggleSort('moMEI')} className="btn btn-ghost btn-xs">MO MEI</button></th>
+                    <th className="text-right"><button onClick={() => toggleSort('moCLT')} className="btn btn-ghost btn-xs">MO CLT</button></th>
+                    <th className="text-right"><button onClick={() => toggleSort('mat')} className="btn btn-ghost btn-xs">Materiais</button></th>
+                    <th className="text-right"><button onClick={() => toggleSort('total')} className="btn btn-ghost btn-xs">Total MEI</button></th>
+                    <th className="text-right">Total CLT</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {itensComResultado.map(item => {
+                  {linhasOrdenadas.map(item => {
                     const mo = calculoMOResults[item.id]
                     const mat = calculoMatConfigs[item.id] ? calcularMatEngenheiro(calculoMatConfigs[item.id]) : 0
                     return (
@@ -68,6 +102,16 @@ export default function ConsolidacaoOrcamento({ data, orcamentos }: Props) {
                       </tr>
                     )
                   })}
+                  <tr className="bg-base-200 font-semibold">
+                    <td className="text-xs">Subtotal</td>
+                    <td className="text-right font-mono text-xs">{areaTotal.toFixed(2)}</td>
+                    <td />
+                    <td className="text-right font-mono text-xs">{formatCurrency(consolidado?.custoMOTotalMEI ?? 0)}</td>
+                    <td className="text-right font-mono text-xs">{formatCurrency(consolidado?.custoMOTotalCLT ?? 0)}</td>
+                    <td className="text-right font-mono text-xs">{formatCurrency(consolidado?.custoMatTotal ?? 0)}</td>
+                    <td className="text-right font-mono text-xs">{formatCurrency(consolidado?.custosDiretosMEI ?? 0)}</td>
+                    <td className="text-right font-mono text-xs">{formatCurrency(consolidado?.custosDiretosCLT ?? 0)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -111,19 +155,6 @@ export default function ConsolidacaoOrcamento({ data, orcamentos }: Props) {
                       <progress className={`progress ${cls} w-full`} value={total > 0 ? (v / total) * 100 : 0} max={100} />
                     </div>
                   ))}
-                </div>
-              </div>
-
-              <div className="card bg-base-100 shadow">
-                <div className="card-body p-4">
-                  <p className="font-semibold mb-3">Vincular a Orçamento de Cliente</p>
-                  <div className="flex gap-2">
-                    <select value={vinculadoId} onChange={e => setVinculadoId(e.target.value)} className="select select-sm flex-1">
-                      <option value="">Selecione um orçamento...</option>
-                      {orcamentos.map(o => <option key={o.id} value={o.id}>{o.id.slice(0, 16)}... — {o.uf} — {o.dataCriacao}</option>)}
-                    </select>
-                    <button disabled={!vinculadoId} className="btn btn-primary btn-sm">Vincular</button>
-                  </div>
                 </div>
               </div>
             </>

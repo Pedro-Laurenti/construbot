@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { EngineerData, Orcamento } from '@/types'
 import { MODULE_META, getContextoAtivo, getModuleUiState, getModuleValidation, type EngineerModuleId } from '@/lib/engineerDashboard'
@@ -9,18 +10,28 @@ interface Props {
   data: EngineerData
   orcamentos: Orcamento[]
   onToggleFoco?: (enabled: boolean) => void
+  hideHeader?: boolean
   children: ReactNode
 }
 
-export default function OperationalModuleShell({ moduleId, data, orcamentos, onToggleFoco, children }: Props) {
+export default function OperationalModuleShell({ moduleId, data, orcamentos, onToggleFoco, hideHeader, children }: Props) {
   const meta = MODULE_META[moduleId]
   const contexto = getContextoAtivo(data, orcamentos)
   const validacao = getModuleValidation(moduleId, data, orcamentos)
   const ui = getModuleUiState(data, moduleId)
+  const [collapsed, setCollapsed] = useState(false)
+  const engAtivo = contexto.orcamentoId ? data.orcamentosEngenheiro[contexto.orcamentoId] : null
+  const fallbackValor = engAtivo
+    ? Object.values(engAtivo.consultasSINAPI ?? {}).reduce((sum, c) => sum + c.insumos.filter(i => i.isFallbackSP).reduce((s, i) => s + i.total, 0), 0)
+    : 0
+  const fallbackTotal = engAtivo
+    ? Object.values(engAtivo.consultasSINAPI ?? {}).reduce((sum, c) => sum + c.subtotal, 0)
+    : 0
+  const fallbackPerc = fallbackTotal > 0 ? (fallbackValor / fallbackTotal) * 100 : 0
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="card bg-base-100 shadow">
+      {!hideHeader && <div className="card bg-base-100 shadow">
         <div className="card-body p-4 gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -28,14 +39,20 @@ export default function OperationalModuleShell({ moduleId, data, orcamentos, onT
               <h2 className="text-xl font-bold">{meta.nome}</h2>
             </div>
             <div className="flex items-center gap-2">
+              {fallbackPerc > 0 && (
+                <span className={`badge ${fallbackPerc > 40 ? 'badge-error' : 'badge-warning'}`}>
+                  IMPACTO FALLBACK: {fallbackPerc.toFixed(1)}%
+                </span>
+              )}
               <span className={`badge ${validacao.status === 'ok' ? 'badge-success' : validacao.status === 'alerta' ? 'badge-warning' : 'badge-error'}`}>
                 {validacao.status === 'ok' ? 'Operacional' : validacao.status === 'alerta' ? 'Atenção' : 'Crítico'}
               </span>
               <span className="badge badge-ghost">Prontidão {validacao.scoreProntidao}%</span>
+              <button onClick={() => setCollapsed(v => !v)} className="btn btn-ghost btn-xs sm:hidden">{collapsed ? 'Expandir' : 'Recolher'}</button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 text-xs">
+          {!collapsed && <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 text-xs">
             <div className="bg-base-200 rounded p-2">
               <p className="text-base-content/50">Orçamento ativo</p>
               <p className="font-mono">{contexto.orcamentoId ? contexto.orcamentoId.slice(0, 16) : 'Sem orçamento ativo'}</p>
@@ -52,9 +69,9 @@ export default function OperationalModuleShell({ moduleId, data, orcamentos, onT
               <p className="text-base-content/50">Próxima ação</p>
               <p className="font-semibold">{validacao.proximaAcao}</p>
             </div>
-          </div>
+          </div>}
 
-          <div className="flex flex-wrap items-start gap-3 text-xs">
+          {!collapsed && <div className="flex flex-wrap items-start gap-3 text-xs">
             <div className="flex-1 min-w-[220px] bg-base-200 rounded p-2">
               <p className="font-semibold mb-1">Decisões desta tela</p>
               {validacao.decisoes.map(item => <p key={item} className="text-base-content/70">{item}</p>)}
@@ -76,9 +93,9 @@ export default function OperationalModuleShell({ moduleId, data, orcamentos, onT
               {validacao.pendencias.length === 0 && <p className="text-base-content/70">Sem pendências bloqueantes.</p>}
               {validacao.pendencias.map(item => <p key={item} className="text-base-content/70">{item}</p>)}
             </div>
-          </div>
+          </div>}
         </div>
-      </div>
+      </div>}
       {children}
     </div>
   )

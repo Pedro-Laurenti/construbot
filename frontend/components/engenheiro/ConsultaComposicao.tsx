@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { GlobalParams } from '@/types'
 import { COMPOSICOES_ANALITICAS, INSUMOS_SINAPI, UF_LIST } from '@/lib/mockData'
+import { GLOBAL_PARAMS } from '@/lib/mockData'
 import { MdCheckCircle, MdWarning, MdInfo } from 'react-icons/md'
 import { formatCurrency } from '@/lib/formatters'
 import type { ItemComposicao, OrcamentoEngenheiro, ConsultaSINAPIServico, InsumoResolvido } from '@/types'
@@ -15,12 +17,13 @@ interface ResultItem extends ItemComposicao {
 
 interface Props {
   uf: string
+  globalParams?: GlobalParams
   orcamentoId?: string
   engData?: OrcamentoEngenheiro
   onUpdateEng?: (patch: Partial<OrcamentoEngenheiro>) => void
 }
 
-export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData, onUpdateEng }: Props) {
+export default function ConsultaComposicao({ uf: defaultUf, globalParams, orcamentoId, engData, onUpdateEng }: Props) {
   const modoWizard = !!orcamentoId && !!engData
   const [showInfo, setShowInfo] = useState(false)
   const [encargos, setEncargos] = useState<'SEM' | 'COM'>('COM')
@@ -34,8 +37,9 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
     return idx >= 0 ? idx : 0
   })
 
-  const VH_COM = 2664.75 * 2.6013 / (22 * 8)
-  const VH_SEM = 2664.75 / (22 * 8)
+  const params = globalParams ?? GLOBAL_PARAMS
+  const VH_COM = params.salarioQualificado * params.fatorEncargos / (22 * 8)
+  const VH_SEM = params.salarioQualificado / (22 * 8)
 
   const servicos = modoWizard ? engData!.quantitativos : []
   const servicoAtual = modoWizard && servicos.length > 0 ? servicos[servicoIdx] : null
@@ -111,7 +115,14 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
 
   function salvarConsulta() {
     if (!resultado || !servicoAtual || !onUpdateEng || !engData) return
-    if (semPreco.length > 0) return
+    if (semPreco.length > 0) {
+      setErro(`Insumos pendentes: ${semPreco.map(i => i.descricao).join(', ')}`)
+      return
+    }
+    if (percFallbackServico > 40) {
+      setErro(`Impacto fallback acima do limite (40%): ${percFallbackServico.toFixed(1)}% no serviço atual.`)
+      return
+    }
     const insumos: InsumoResolvido[] = resultado.itens.map(it => ({
       codigo: it.codigo,
       descricao: it.descricao,
@@ -146,10 +157,20 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
   const impactoFallbackOrcamento = modoWizard
     ? Object.values(engData!.consultasSINAPI).reduce((sum, consulta) => sum + consulta.insumos.filter(i => i.isFallbackSP).reduce((s, i) => s + i.total, 0), 0)
     : 0
+  const totalInsumosOrcamento = modoWizard
+    ? Object.values(engData!.consultasSINAPI).reduce((sum, consulta) => sum + consulta.subtotal, 0)
+    : 0
+  const percFallbackOrcamento = totalInsumosOrcamento > 0 ? (impactoFallbackOrcamento / totalInsumosOrcamento) * 100 : 0
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
       <h2 className="text-xl font-bold flex items-center gap-1">{modoWizard ? 'E3 — Preços dos Insumos' : 'Consulta de Composição com Custo'} <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h2>
+
+      {modoWizard && percFallbackOrcamento > 0 && (
+        <div className={`badge ${percFallbackOrcamento > 40 ? 'badge-error' : 'badge-warning'}`}>
+          IMPACTO FALLBACK: {percFallbackOrcamento.toFixed(1)}%
+        </div>
+      )}
 
       {modoWizard && (
         <div>
@@ -219,7 +240,7 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
           <div className="card-body p-3 text-xs">
             <p className="font-semibold text-warning">Impacto financeiro do fallback SP</p>
             <p>Serviço atual com fallback: {formatCurrency(impactoFallbackServico)} ({percFallbackServico.toFixed(1)}% do custo de insumos do serviço)</p>
-            {modoWizard && <p>Acumulado no orçamento já confirmado em E3: {formatCurrency(impactoFallbackOrcamento)}</p>}
+            {modoWizard && <p>Acumulado no orçamento já confirmado em E3: {formatCurrency(impactoFallbackOrcamento)} ({percFallbackOrcamento.toFixed(1)}%)</p>}
           </div>
         </div>
       )}
@@ -269,7 +290,9 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
                                   className={`input input-xs w-24 text-right ${item.isFallbackSP ? 'border-warning' : ''}`}
                                 />
                                 {item.isFallbackSP && <span className="badge badge-xs badge-warning">SP</span>}
-                                {item.custoUnitario <= 0 && <span className="badge badge-xs badge-error">Sem preço</span>}
+                                {item.custoUnitario <= 0 && !item.valorEditado && !item.isFallbackSP && <span className="badge badge-xs badge-error">Nunca teve</span>}
+                                {item.custoUnitario <= 0 && item.valorEditado === 0 && <span className="badge badge-xs badge-error">Editado p/0</span>}
+                                {item.custoUnitario <= 0 && item.isFallbackSP && <span className="badge badge-xs badge-error">Fallback falhou</span>}
                               </div>
                               {item.isFallbackSP && (
                                 <p className="label text-xs text-warning">Sem pesquisa em {ufSel} neste período — usando SP como referência</p>

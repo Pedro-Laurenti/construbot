@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { MdArrowBack, MdArrowForward, MdArrowBack as MdBack, MdWarning } from 'react-icons/md'
-import { loadStorage, saveStorage } from '@/lib/storage'
 import { PLANTAS_PADRAO } from '@/lib/mockData'
 import { formatDate } from '@/lib/formatters'
 import StepperEtapas from './StepperEtapas'
@@ -12,7 +11,7 @@ import ConsultaComposicao from './ConsultaComposicao'
 import CalculadoraMO from './CalculadoraMO'
 import CalculadoraMateriais from './CalculadoraMateriais'
 import PrecificacaoFinal from './PrecificacaoFinal'
-import type { EngineerData, Orcamento, OrcamentoEngenheiro, QuantitativoServico, EtapaWizard, StatusValidacaoEtapa } from '@/types'
+import type { AppSession, EngineerData, Orcamento, OrcamentoEngenheiro, QuantitativoServico, EtapaWizard, StatusValidacaoEtapa } from '@/types'
 
 type EtapaComEntrega = EtapaWizard | 'ENTREGUE'
 
@@ -21,7 +20,9 @@ const ETAPA_ORDEM: EtapaWizard[] = ['E2', 'E3', 'E4', 'E5', 'E6']
 interface Props {
   orcamento: Orcamento
   data: EngineerData
+  session: AppSession
   onUpdate: (p: Partial<EngineerData>) => void
+  onUpdateSession: (updater: (prev: AppSession) => AppSession) => void
   onVoltar: () => void
 }
 
@@ -37,7 +38,19 @@ function getStatusBadge(status: Orcamento['status'], etapaAtual: string) {
 }
 
 function checksum(value: unknown): string {
-  const raw = JSON.stringify(value ?? null)
+  function sortValue(v: unknown): unknown {
+    if (Array.isArray(v)) return v.map(sortValue)
+    if (v && typeof v === 'object') {
+      return Object.keys(v as Record<string, unknown>)
+        .sort()
+        .reduce<Record<string, unknown>>((acc, key) => {
+          acc[key] = sortValue((v as Record<string, unknown>)[key])
+          return acc
+        }, {})
+    }
+    return v
+  }
+  const raw = JSON.stringify(sortValue(value ?? null))
   let hash = 0
   for (let i = 0; i < raw.length; i++) hash = (hash * 31 + raw.charCodeAt(i)) >>> 0
   return `v1-${hash.toString(16)}`
@@ -161,7 +174,7 @@ function getRiscosEtapa(etapa: EtapaWizard, validacao: StatusValidacaoEtapa): Ar
   return riscos.slice(0, 4)
 }
 
-export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }: Props) {
+export default function OrcamentoWizard({ orcamento, data, session, onUpdate, onUpdateSession, onVoltar }: Props) {
   const engData = data.orcamentosEngenheiro[orcamento.id]
   const etapaAtual = (engData?.etapaAtual ?? 'E2') as EtapaComEntrega
   const etapasConcluidas = engData?.etapasConcluidas ?? []
@@ -173,7 +186,8 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
   const [e6ActionType, setE6ActionType] = useState<'salvar' | 'entregar' | null>(null)
   const [e6WizardState, setE6WizardState] = useState({ prontoParaEntrega: false, jaEntregue: false })
 
-  const planta = orcamento.parametros ? PLANTAS_PADRAO.find(p => p.id === orcamento.parametros.plantaId) : null
+  const plantaId = orcamento.parametros?.plantaId
+  const planta = plantaId ? PLANTAS_PADRAO.find(p => p.id === plantaId) : null
   const badge = getStatusBadge(orcamento.status, engData?.etapaAtual ?? '-')
 
   function persistUI(nextEtapa: EtapaWizard) {
@@ -206,15 +220,17 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
         checksumsEtapas: {},
         snapshotParametrosGlobais: data.globalParams,
         versaoParametrosE2: now,
+        sinapiRef: data.mesReferenciaSINAPI,
         uiState: { etapaVisivel: 'E2' },
       }
       onUpdate({ orcamentosEngenheiro: { ...data.orcamentosEngenheiro, [orcamento.id]: novoEng } })
     }
 
     if (orcamento.status === 'aguardando_engenheiro') {
-      const session = loadStorage()
-      const orcs = session.orcamentos.map(o => (o.id === orcamento.id ? { ...o, status: 'em_calculo' as const } : o))
-      saveStorage({ ...session, orcamentos: orcs })
+      onUpdateSession(prev => ({
+        ...prev,
+        orcamentos: prev.orcamentos.map(o => (o.id === orcamento.id ? { ...o, status: 'em_calculo' as const } : o)),
+      }))
     }
   }
 
@@ -232,6 +248,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
       checksumsEtapas: {},
       snapshotParametrosGlobais: data.globalParams,
       versaoParametrosE2: now,
+      sinapiRef: data.mesReferenciaSINAPI,
       uiState: { etapaVisivel: 'E2' as EtapaWizard },
     }
     const merged = { ...atual, ...patch }
@@ -336,6 +353,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
       checksumsEtapas: { ...(atual.checksumsEtapas ?? {}), [etapa]: hashAtual ?? checksumEtapa(etapa, atual) },
       versaoParametrosE4: etapa === 'E4' ? now : atual.versaoParametrosE4,
       versaoParametrosE6: etapa === 'E6' ? now : atual.versaoParametrosE6,
+      parametrosObsoletos: etapa === 'E4' ? false : atual.parametrosObsoletos,
     })
 
     if (proxima) {
@@ -383,7 +401,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
 
   const resumoCompacto = orcamento.parametros ? (
     <p className="text-xs text-base-content/40 mb-2">
-      {orcamento.clienteId} · {orcamento.uf}{planta ? ` · ${planta.nome}` : ''} · SINAPI {data.mesReferenciaSINAPI} · Etapa {etapaVisivel}
+      {orcamento.clienteId} · {orcamento.uf}{planta ? ` · ${planta.nome}` : ''} · SINAPI {eng.sinapiRef ?? data.mesReferenciaSINAPI} · Etapa {etapaVisivel}
     </p>
   ) : null
 
@@ -418,7 +436,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
       )
     }
 
-    if (etapaVisivel === 'E3') return <>{resumoCompacto}<ConsultaComposicao uf={orcamento.uf || data.uf} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
+    if (etapaVisivel === 'E3') return <>{resumoCompacto}<ConsultaComposicao uf={orcamento.uf || data.uf} globalParams={data.globalParams} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
     if (etapaVisivel === 'E4') return <>{resumoCompacto}<CalculadoraMO data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
     if (etapaVisivel === 'E5') return <>{resumoCompacto}<CalculadoraMateriais data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
     return (
@@ -427,10 +445,11 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
         <PrecificacaoFinal
           data={data}
           onUpdate={onUpdate}
-          orcamentos={[orcamento]}
+          orcamentos={session.orcamentos.filter(item => item.id === orcamento.id)}
           orcamentoId={orcamento.id}
           engData={eng}
           onUpdateEng={atualizarEng}
+          onUpdateSession={onUpdateSession}
           onEntregar={() => {}}
           actionToken={e6ActionToken}
           actionType={e6ActionType}
@@ -443,6 +462,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
   return (
     <div className="flex flex-col h-full">
       <div className="bg-base-100 border-b border-base-300 px-6 py-3 flex-shrink-0">
+        <p className="text-xs text-base-content/50 mb-1">Engenheiro &gt; Orçamentos &gt; {orcamento.clienteId} &gt; Wizard</p>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <button onClick={onVoltar} className="btn btn-ghost btn-sm gap-1">
@@ -472,6 +492,11 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-5xl mx-auto flex flex-col gap-4">
+          {eng.parametrosObsoletos && (
+            <div className="alert alert-warning text-sm">
+              Parâmetros globais foram alterados após os cálculos. Recalcule a etapa E4 para atualizar os resultados.
+            </div>
+          )}
           <div className="card bg-base-100 shadow">
             <div className="card-body p-3">
               <div className="flex items-center justify-between">

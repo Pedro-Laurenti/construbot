@@ -1,27 +1,29 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { saveStorage, loadStorage } from '@/lib/storage'
 import { appendAuditEvent, getModuleUiState, getStatusBadge, setModuleUiState } from '@/lib/engineerDashboard'
 import { formatDate } from '@/lib/formatters'
 import { PLANTAS_PADRAO } from '@/lib/mockData'
 import { seedOrcamentoMock } from '@/lib/seedMock'
-import type { EngineerData, Orcamento, OrcamentoReviewStatus, OrcamentoStatus } from '@/types'
+import type { AppSession, EngineerData, Orcamento, OrcamentoReviewStatus, OrcamentoStatus } from '@/types'
 import { MdCheckCircle, MdCancel, MdPlayArrow, MdArrowForward, MdLockOpen } from 'react-icons/md'
 
 interface Props {
   data: EngineerData
   onUpdate: (p: Partial<EngineerData>) => void
   orcamentos: Orcamento[]
+  onUpdateSession: (updater: (prev: AppSession) => AppSession) => void
+  onRefreshSession: () => void
   onEnterWizard: (orc: Orcamento) => void
 }
 
-export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWizard }: Props) {
+export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onUpdateSession, onRefreshSession, onEnterWizard }: Props) {
   const { orcamentoReviews } = data
   const ui = getModuleUiState(data, 'orcamentos')
   const [selected, setSelected] = useState<Orcamento | null>(null)
   const [reabrirSelecionado, setReabrirSelecionado] = useState<Orcamento | null>(null)
   const [motivoReabertura, setMotivoReabertura] = useState('')
+  const [motivoErro, setMotivoErro] = useState('')
   const [obs, setObs] = useState('')
   const [fStatus, setFStatus] = useState(ui.filtros?.status ?? '')
   const [fEtapa, setFEtapa] = useState(ui.filtros?.etapa ?? '')
@@ -52,12 +54,16 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
   }
 
   function reabrirOrcamento(orc: Orcamento) {
-    if (!motivoReabertura.trim()) return
-    const session = loadStorage()
-    const orcs = session.orcamentos.map(o =>
-      o.id === orc.id ? { ...o, status: 'em_calculo' as const, motivoReabertura: motivoReabertura.trim() } : o
-    )
-    saveStorage({ ...session, orcamentos: orcs })
+    if (!motivoReabertura.trim()) {
+      setMotivoErro('Motivo obrigatório')
+      return
+    }
+    onUpdateSession(prev => ({
+      ...prev,
+      orcamentos: prev.orcamentos.map(o =>
+        o.id === orc.id ? { ...o, status: 'em_calculo' as const, motivoReabertura: motivoReabertura.trim() } : o
+      ),
+    }))
     const eng = data.orcamentosEngenheiro[orc.id]
     if (eng) {
       onUpdate({
@@ -82,6 +88,7 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
       })
     }
     setMotivoReabertura('')
+    setMotivoErro('')
     setReabrirSelecionado(null)
     onEnterWizard({ ...orc, status: 'em_calculo' })
   }
@@ -106,7 +113,7 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
           <h1 className="text-2xl font-bold">Orçamentos</h1>
           <p className="text-base-content/50 text-sm">{orcamentos.length} orçamento(s) de clientes</p>
         </div>
-        <button onClick={() => { seedOrcamentoMock(); window.location.reload() }} className="btn btn-outline btn-sm">Mockar orçamento</button>
+        <button onClick={() => { seedOrcamentoMock(); onRefreshSession(); onUpdate({ moduleUIState: { ...data.moduleUIState } }) }} className="btn btn-outline btn-sm">Mockar orçamento</button>
       </div>
 
       <div className="card bg-base-100 shadow">
@@ -146,16 +153,30 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
       <div className="card bg-base-100 shadow overflow-x-auto">
         <table className="table table-sm">
           <thead>
-            <tr><th>ID</th><th>Data</th><th>UF</th><th>Planta</th><th>Status</th><th>Etapa</th><th>Ações</th></tr>
+            <tr><th>ID</th><th>Data</th><th>UF</th><th>Planta</th><th>Status</th><th>Etapa</th><th>Progresso</th><th>Ações</th></tr>
           </thead>
           <tbody>
             {filtrados.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-base-content/40 py-8">Nenhum orçamento encontrado para os filtros aplicados.</td></tr>
+              <tr>
+                <td colSpan={8} className="text-center text-base-content/40 py-8">
+                  <p>Nenhum orçamento encontrado para os filtros aplicados.</p>
+                  <p className="text-xs mt-1">Ajuste filtros ou clique em Mockar orçamento para gerar um exemplo.</p>
+                </td>
+              </tr>
+            )}
+            {orcamentos.length === 0 && (
+              <tr>
+                <td colSpan={8} className="text-center text-base-content/40 py-8">
+                  <p>Sem orçamentos cadastrados.</p>
+                  <p className="text-xs mt-1">Use o botão Mockar orçamento para iniciar o fluxo.</p>
+                </td>
+              </tr>
             )}
             {filtrados.map(orc => {
               const engOrc = data.orcamentosEngenheiro[orc.id]
               const badge = getStatusBadge(orc.status, engOrc?.etapaAtual)
               const etapa: string = engOrc?.etapaAtual ?? '-'
+              const progressoEtapas = `${engOrc?.etapasConcluidas?.filter(e => ['E1', 'E2', 'E3', 'E4', 'E5', 'E6'].includes(e)).length ?? 0}/6`
               const planta = PLANTAS_PADRAO.find(p => p.id === orc.parametros?.plantaId)
               return (
                 <tr key={orc.id} className="hover">
@@ -169,6 +190,7 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
                     </span>
                   </td>
                   <td className="text-xs font-mono">{etapa}</td>
+                  <td className="text-xs font-mono">{progressoEtapas}</td>
                   <td>
                     <div className="flex gap-1 items-center flex-wrap">
                       {(orc.status === 'aguardando_engenheiro' || orc.status === 'em_calculo') && (
@@ -221,7 +243,8 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
             </div>
             <fieldset className="fieldset mb-3">
               <legend className="fieldset-legend text-xs">Motivo da reabertura</legend>
-              <textarea value={motivoReabertura} onChange={e => setMotivoReabertura(e.target.value)} className="textarea w-full" rows={3} placeholder="Explique por que o orçamento está sendo reaberto" />
+              <textarea value={motivoReabertura} onChange={e => { setMotivoReabertura(e.target.value); if (motivoErro) setMotivoErro('') }} className="textarea w-full" rows={3} placeholder="Explique por que o orçamento está sendo reaberto" />
+              {motivoErro && <p className="text-xs text-error mt-1">{motivoErro}</p>}
             </fieldset>
             <div className="flex justify-end">
               <button onClick={() => reabrirOrcamento(reabrirSelecionado)} className="btn btn-warning btn-sm" disabled={!motivoReabertura.trim()}>

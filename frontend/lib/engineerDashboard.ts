@@ -3,6 +3,7 @@ import type { EngineerData, Orcamento, OrcamentoStatus, AuditEventEngenharia, Mo
 export type EngineerModuleId =
   | 'painel'
   | 'parametros'
+  | 'auditoria'
   | 'consulta'
   | 'calculadora-mo'
   | 'calculadora-mat'
@@ -31,6 +32,7 @@ export interface ModuleOperationalValidation {
 export const MODULE_META: Record<EngineerModuleId, ModuleOperationalMeta> = {
   painel: { nome: 'Painel Geral', acaoPrimaria: 'Priorizar itens críticos' },
   parametros: { nome: 'Parâmetros Globais', acaoPrimaria: 'Validar impacto e salvar' },
+  auditoria: { nome: 'Auditoria', acaoPrimaria: 'Revisar histórico operacional' },
   orcamentos: { nome: 'Gestão de Orçamentos', acaoPrimaria: 'Triar e iniciar orçamento' },
   sinapi: { nome: 'SINAPI Insumos', acaoPrimaria: 'Confirmar referências por UF' },
   consulta: { nome: 'Consulta de Composição', acaoPrimaria: 'Confirmar preços de insumos' },
@@ -95,6 +97,12 @@ export function getModuleValidation(moduleId: EngineerModuleId, data: EngineerDa
     decisoes.push(`${ativos.length} orçamento(s) em operação`)
     decisoes.push(`${entregues.length} orçamento(s) entregue(s)`)
     if (ativos.length === 0 && orcamentos.length > 0) riscos.push({ nivel: 'info', texto: 'Todos os orçamentos foram entregues.' })
+  }
+
+  if (moduleId === 'auditoria') {
+    decisoes.push(`${data.auditTrail.length} evento(s) registrados`)
+    decisoes.push(`Última referência SINAPI ${data.mesReferenciaSINAPI}`)
+    if (data.auditTrail.length === 0) pendencias.push('Ainda não há eventos auditáveis para revisão')
   }
 
   if (moduleId === 'parametros') {

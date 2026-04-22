@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { loadStorage, saveStorage } from '@/lib/storage'
 import { PLANTAS_PADRAO, CONDICOES_FINANCIAMENTO, FASES_OBRA_PADRAO } from '@/lib/mockData'
 import { calcularFluxoCaixaINCC, calcularParcelaPrice, calcularAporteMinimo, calcularTabelaAportes, calcularMatEngenheiro } from '@/lib/calculos'
 import { formatCurrency, formatPercentual } from '@/lib/formatters'
 import { MdSend, MdAttachMoney, MdAccountBalance, MdCheckCircle, MdInsertChart, MdInfo } from 'react-icons/md'
-import type { EngineerData, Orcamento, SaidaCliente, OrcamentoEngenheiro, FaseObra } from '@/types'
+import type { AppSession, EngineerData, Orcamento, SaidaCliente, OrcamentoEngenheiro, FaseObra } from '@/types'
 
 interface Props {
   data: EngineerData
@@ -15,6 +14,7 @@ interface Props {
   orcamentoId?: string
   engData?: OrcamentoEngenheiro
   onUpdateEng?: (patch: Partial<OrcamentoEngenheiro>) => void
+  onUpdateSession?: (updater: (prev: AppSession) => AppSession) => void
   onEntregar?: () => void
   actionToken?: number
   actionType?: 'salvar' | 'entregar' | null
@@ -26,31 +26,50 @@ function BarChart({ parcelas }: { parcelas: { mes: number; custoParcela: number;
   const W = 48
   const GAP = 6
   const HEIGHT = 80
+  const AXIS_LEFT = 22
   const total = parcelas.length
-  const svgWidth = total * (W + GAP) + GAP
+  const svgWidth = total * (W + GAP) + GAP + AXIS_LEFT
+  const yTicks = [0, maxVal / 2, maxVal]
 
   return (
     <div className="overflow-x-auto">
       <svg width={svgWidth} height={HEIGHT + 28} className="block">
+        <line x1={AXIS_LEFT} y1={0} x2={AXIS_LEFT} y2={HEIGHT} className="stroke-base-content/20" strokeWidth="1" />
+        {yTicks.map((tick, idx) => {
+          const y = HEIGHT - Math.round((tick / maxVal) * HEIGHT)
+          return (
+            <g key={idx}>
+              <line x1={AXIS_LEFT - 3} y1={y} x2={svgWidth} y2={y} className="stroke-base-content/10" strokeWidth="1" />
+              <text x={AXIS_LEFT - 5} y={y + 3} fontSize={8} textAnchor="end" className="fill-base-content/40">{Math.round(tick / 1000)}k</text>
+            </g>
+          )
+        })}
         {parcelas.map((p, i) => {
-          const x = GAP + i * (W + GAP)
+          const x = AXIS_LEFT + GAP + i * (W + GAP)
           const hNom = Math.round((p.custoParcela / maxVal) * HEIGHT)
           const hCorr = Math.round((p.custoParcelaCorrigido / maxVal) * HEIGHT)
           return (
             <g key={p.mes}>
-              <rect x={x} y={HEIGHT - hNom} width={W * 0.45} height={hNom} className="fill-primary/40" rx="2" />
-              <rect x={x + W * 0.5} y={HEIGHT - hCorr} width={W * 0.45} height={hCorr} className="fill-primary" rx="2" />
+              <rect x={x} y={HEIGHT - hNom} width={W * 0.45} height={hNom} className="fill-primary/40" rx="2">
+                <title>{`Mês ${p.mes} · Nominal ${formatCurrency(p.custoParcela)}`}</title>
+              </rect>
+              <rect x={x + W * 0.5} y={HEIGHT - hCorr} width={W * 0.45} height={hCorr} className="fill-primary" rx="2">
+                <title>{`Mês ${p.mes} · Corrigido ${formatCurrency(p.custoParcelaCorrigido)}`}</title>
+              </rect>
               <text x={x + W / 2} y={HEIGHT + 14} fontSize={9} textAnchor="middle" className="fill-base-content/60">{p.mes}</text>
             </g>
           )
         })}
-        <text x={0} y={10} fontSize={8} className="fill-base-content/40">nominal</text>
       </svg>
+      <div className="flex items-center gap-3 text-xs text-base-content/60 mt-1">
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-2 rounded bg-primary/40" /> Nominal</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3 h-2 rounded bg-primary" /> Corrigido</span>
+      </div>
     </div>
   )
 }
 
-export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcamentoId: orcamentoIdProp, engData: engDataProp, onUpdateEng, onEntregar, actionToken, actionType, onWizardStateChange }: Props) {
+export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcamentoId: orcamentoIdProp, engData: engDataProp, onUpdateEng, onUpdateSession, onEntregar, actionToken, actionType, onWizardStateChange }: Props) {
   const modoWizard = !!orcamentoIdProp && !!engDataProp
 
   const [selectedOrcId, setSelectedOrcId] = useState(orcamentoIdProp ?? '')
@@ -70,6 +89,8 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
   const tempoMeses = planta?.tempoObraMeses ?? 8
 
   const [fasesObra, setFasesObra] = useState<FaseObra[]>(engData?.fasesObra ?? FASES_OBRA_PADRAO)
+  const somaFases = fasesObra.reduce((sum, fase) => sum + fase.percentualCusto, 0)
+  const fasesValidadas = Math.abs(somaFases - 1) <= 0.001
 
   function getDistribuicaoMensal(): number[] {
     const meses = Math.max(1, tempoMeses)
@@ -143,26 +164,32 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
   function entregarOrcamento() {
     if (!orcamento || !engData) return
+    const detalheEntrega = { etapa: 'E6' as const, data: new Date().toISOString(), usuario: 'engenheiro_local', motivo: 'entrega_cliente' }
     const saida: SaidaCliente = {
       valorMinimoEntrada: aaMEI,
       parcelaMensalPrice: parcelaMEI,
       tabelaAportes,
       prazoTotalObraMeses: tempoMeses,
       precoFinalObra: precoFinalMEI,
+      sinapiRef: engData.sinapiRef ?? data.mesReferenciaSINAPI,
     }
-    const session = loadStorage()
-    const updatedOrcamentos = session.orcamentos.map(o =>
-      o.id === orcamento.id ? { ...o, status: 'entregue' as const, saida } : o
-    )
-    saveStorage({ ...session, orcamentos: updatedOrcamentos })
+    if (onUpdateSession) {
+      onUpdateSession(prev => ({
+        ...prev,
+        orcamentos: prev.orcamentos.map(o =>
+          o.id === orcamento.id ? { ...o, status: 'entregue' as const, saida } : o
+        ),
+      }))
+    }
     const now = new Date().toISOString()
     const updatedEng = {
       ...data.orcamentosEngenheiro,
       [orcamento.id]: {
         ...engData,
         etapaAtual: 'ENTREGUE' as const,
+        sinapiRef: engData.sinapiRef ?? data.mesReferenciaSINAPI,
         logEtapas: [...(engData.logEtapas ?? []), { etapa: 'E6', concluidaEm: now }],
-        logEtapasDetalhado: [...(engData.logEtapasDetalhado ?? []), { etapa: 'E6', data: now, usuario: 'engenheiro_local', motivo: 'entrega_cliente' }],
+        logEtapasDetalhado: [...(engData.logEtapasDetalhado ?? []), detalheEntrega],
       },
     }
     onUpdate({ orcamentosEngenheiro: updatedEng })
@@ -177,7 +204,7 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
     custosConsolidados: rows.length > 0,
     materiaisSalvos: rows.every(r => r.custoMat > 0),
     maoObraSalva: rows.every(r => r.custoMoMEI > 0 || r.custoMoCLT > 0),
-    cronogramaValido: fasesObra.length > 0 && fasesObra.every(f => f.percentualCusto > 0),
+    cronogramaValido: fasesObra.length > 0 && fasesObra.every(f => f.percentualCusto > 0) && fasesValidadas,
     saidaClienteValida: aaMEI > 0 && parcelaMEI > 0 && (tabelaAportes?.length ?? 0) > 0,
   }
   const prontoParaEntrega = Object.values(checklistEntrega).every(Boolean)
@@ -285,6 +312,7 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
             <div className="collapse-content">
               <p className="text-xs text-base-content/50 mb-2">Distribua os custos por fase para calcular o impacto do INCC ao longo da obra.</p>
               <p className="text-xs text-base-content/50 mb-4">INCC Mensal: {formatPercentual(incc)} | Prazo: {tempoMeses} meses</p>
+              <div className={`badge ${fasesValidadas ? 'badge-success' : 'badge-error'} mb-2`}>Soma das fases: {(somaFases * 100).toFixed(1)}%</div>
 
               <div className="overflow-x-auto mb-4">
                 <table className="table table-xs">
@@ -450,6 +478,20 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
               <div className="bg-base-200 rounded p-3 text-center">
                 <p className="text-xs text-base-content/50">Aporte Mínimo (AA)</p>
                 <p className="font-mono font-bold">{formatCurrency(aaMEI)}</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div className="bg-base-200 rounded p-3 text-center">
+                  <p className="text-xs text-base-content/50">Desconto Cliente (MEI)</p>
+                  <p className="font-mono font-bold">{formatCurrency(rows.reduce((sum, r) => sum + (engData?.calculosMO[r.id]?.resultado.descontoCliente ?? 0), 0))}</p>
+                </div>
+                <div className="bg-base-200 rounded p-3 text-center">
+                  <p className="text-xs text-base-content/50">Desconto Cliente (%)</p>
+                  <p className="font-mono font-bold">22% MEI / 30% CLT</p>
+                </div>
+                <div className="bg-base-200 rounded p-3 text-center">
+                  <p className="text-xs text-base-content/50">Distribuição fases</p>
+                  <p className={`font-mono font-bold ${fasesValidadas ? 'text-success' : 'text-error'}`}>{fasesValidadas ? '100% OK' : 'Ajustar para 100%'}</p>
+                </div>
               </div>
               <div className="bg-base-200 rounded p-3 text-center">
                 <p className="text-xs text-base-content/50">Parcela Mensal</p>

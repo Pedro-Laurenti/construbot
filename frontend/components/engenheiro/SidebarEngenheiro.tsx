@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdHomeWork, MdPriceChange, MdSummarize } from 'react-icons/md'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdHomeWork, MdPriceChange, MdSummarize, MdHistory } from 'react-icons/md'
 import { getModuleValidation, type EngineerModuleId } from '@/lib/engineerDashboard'
 import type { EngineerData, Orcamento } from '@/types'
 
@@ -16,6 +16,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: 'painel', label: 'Painel Geral', sub: 'Dashboard', icon: <MdDashboard size={20} /> },
       { id: 'parametros', label: 'Parâmetros Globais', sub: 'BDI, encargos e INCC', icon: <MdSettings size={20} /> },
+      { id: 'auditoria', label: 'Auditoria', sub: 'Histórico e rastreabilidade', icon: <MdHistory size={20} /> },
     ],
   },
   {
@@ -56,6 +57,10 @@ interface SidebarEngenheiroProps {
 export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout, data, orcamentos }: SidebarEngenheiroProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const validacoes = useMemo(() => {
+    const allItems = NAV_SECTIONS.flatMap(section => section.items)
+    return Object.fromEntries(allItems.map(item => [item.id, getModuleValidation(item.id, data, orcamentos)]))
+  }, [data, orcamentos])
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -102,21 +107,23 @@ export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout, 
           <div key={section.title}>
             <p className="text-xs font-bold text-base-content/30 uppercase tracking-wider px-4 pt-4 pb-1">{section.title}</p>
             {section.items.map(item => {
-              const validacao = getModuleValidation(item.id, data, orcamentos)
+              const validacao = validacoes[item.id]
               const pendencias = validacao.pendencias.length
+              const badgeClass = validacao.status === 'erro' ? 'badge-error' : validacao.status === 'alerta' ? 'badge-warning' : 'badge-info'
               return (
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
+                  title={`${item.label} — ${item.sub}`}
                   className={`flex items-center gap-3 px-3 py-2.5 w-full text-left transition-colors ${activeModule === item.id ? 'bg-secondary text-secondary-content' : 'hover:bg-base-200'}`}
                 >
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeModule === item.id ? 'bg-secondary-content/20' : 'bg-base-300'}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeModule === item.id ? 'bg-secondary-content/20 text-secondary-content' : 'bg-base-300 text-base-content/70'}`}>
                     {item.icon}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate">{item.label}</p>
-                      {pendencias > 0 && <span className="badge badge-warning badge-xs">{pendencias}</span>}
+                      {pendencias > 0 && <span className={`badge badge-xs ${badgeClass}`}>{pendencias}</span>}
                     </div>
                     <p className="text-xs opacity-50 truncate">{item.sub}</p>
                   </div>

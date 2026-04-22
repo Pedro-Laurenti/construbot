@@ -20,7 +20,11 @@
       "Bash(/home/pedro/DEVP/construbot/frontend/node_modules/.bin/next build *)",
       "Bash(git -C /home/pedro/DEVP/construbot status --short)",
       "Bash(/home/pedro/DEVP/construbot/backend/.venv/bin/pip list *)",
-      "Bash(/home/pedro/DEVP/construbot/backend/.venv/bin/python3 -c ' *)"
+      "Bash(/home/pedro/DEVP/construbot/backend/.venv/bin/python3 -c ' *)",
+      "Bash(pandoc --version)",
+      "Bash(/home/pedro/DEVP/construbot/backend/.venv/bin/python3 -c \"import docx; print\\('python-docx available'\\)\")",
+      "Bash(/home/pedro/DEVP/construbot/backend/.venv/bin/pip install *)",
+      "Bash(python3)"
     ]
   }
 }

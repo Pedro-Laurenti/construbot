@@ -7,8 +7,8 @@ export function calcularItem(item: OrcamentoItem): ItemResultado {
 
   const vhProfSem = p.salarioQualificado / (22 * 8)
   const vhServSem = p.salarioServente / (22 * 8)
-  const vhProfCom = vhProfSem * p.encargosPercentual
-  const vhServCom = vhServSem * p.encargosPercentual
+  const vhProfCom = vhProfSem * p.fatorEncargos
+  const vhServCom = vhServSem * p.fatorEncargos
 
   const { prodBasica, propAjudante, materialUnitario } = cfg
 
@@ -20,11 +20,13 @@ export function calcularItem(item: OrcamentoItem): ItemResultado {
     const prod = prodBasica * mult
     const hhP = item.quantidade / prod
     const hhA = hhP * propAjudante
-    const nP = Math.max(1, Math.ceil(hhP / (item.prazoRequerido * 8)))
+    const prazoDisponivel = item.prazoRequerido > 0 ? item.prazoRequerido : (hhP / 8)
+    const nP = Math.max(1, Math.ceil(hhP / (Math.max(1, prazoDisponivel) * 8)))
     const prazoEf = hhP / (nP * 8)
     const nA = Math.max(0, Math.ceil(hhA / (prazoEf * 8)))
+    const custoAjudanteMEI = (item.modalidadeAjudante ?? 'CLT') === 'MEI' ? hhA * vhServSem * 1.3 : hhA * vhServCom
     const cReal = item.modalidade === 'MEI'
-      ? hhP * vhProfSem * 1.3 + hhA * vhServCom
+      ? hhP * vhProfSem * 1.3 + custoAjudanteMEI
       : hhP * vhProfCom + hhA * vhServCom
     const eco = Math.max(0, cSinapi - cReal)
     const bonusCenario = item.modalidade === 'MEI' ? 0.64 * eco : 0.56 * eco
@@ -33,12 +35,14 @@ export function calcularItem(item: OrcamentoItem): ItemResultado {
 
   const mensalista = buildCenario(0.80)
   const otima = buildCenario(1.25)
-  const prazo = buildCenario(1.00)
+  const adicionalProdutividade = item.adicionalProdutividade && item.adicionalProdutividade > 0 ? item.adicionalProdutividade : 1.30
+  const prazo = buildCenario(adicionalProdutividade)
 
-  const cRealMEI = hhProfSin * vhProfSem * 1.3 + hhAjudSin * vhServCom
+  const cRealMEI = otima.custoBase
   const economiaMEI = Math.max(0, cSinapi - cRealMEI)
   const custoFinalMEI = cRealMEI + 0.64 * economiaMEI
   const custoFinalCLT = cSinapi
+  const descontoCliente = item.modalidade === 'MEI' ? economiaMEI * 0.22 : economiaMEI * 0.30
 
   const custoMat = materialUnitario * item.quantidade
   const insumos: InsumoItem[] = [{
@@ -66,11 +70,11 @@ export function calcularItem(item: OrcamentoItem): ItemResultado {
     bonusCLT: otima.bonusCenario,
     bonusConstrutora: 0.14 * economiaMEI,
     salarioEsperadoMEI: p.salarioQualificado * 1.3,
-    salarioEsperadoCLT: p.salarioQualificado * p.encargosPercentual,
+    salarioEsperadoCLT: p.salarioQualificado * p.fatorEncargos,
     valorEquivalenteTotalUNMEI: custoFinalMEI / item.quantidade,
     valorEquivalenteTotalUNCLT: custoFinalCLT / item.quantidade,
     valorMensalEsperadoMEI: p.salarioQualificado * 1.3 + (0.64 * economiaMEI) / meses,
-    valorMensalEsperadoCLT: p.salarioQualificado * p.encargosPercentual,
+    valorMensalEsperadoCLT: p.salarioQualificado * p.fatorEncargos,
     custoMaterialServico: custoMat,
     insumos,
     custoFinalMEI,
@@ -79,6 +83,7 @@ export function calcularItem(item: OrcamentoItem): ItemResultado {
     custoUnitarioCLT: custoFinalCLT / item.quantidade,
     bonusConstrutoraMEI: 0.14 * economiaMEI,
     bonusConstrutoralCLT: 0,
+    descontoCliente,
     precoFinalMEI: (custoFinalMEI + custoMat) * (1 + p.bdi),
     precoFinalCLT: (custoFinalCLT + custoMat) * (1 + p.bdi),
   }
@@ -100,11 +105,11 @@ export function calcularTotais(orcamento: Orcamento): OrcamentoTotais {
     custosDiretosCLT,
     custosDiretosPorM2MEI: areaTotal > 0 ? custosDiretosMEI / areaTotal : 0,
     custosDiretosPorM2CLT: areaTotal > 0 ? custosDiretosCLT / areaTotal : 0,
-    precoFinalMEI: custosDiretosMEI * 1.2,
-    precoFinalCLT: custosDiretosCLT * 1.2,
+    precoFinalMEI: custosDiretosMEI * (1 + GLOBAL_PARAMS.bdi),
+    precoFinalCLT: custosDiretosCLT * (1 + GLOBAL_PARAMS.bdi),
     areaTotal,
-    precoPorM2MEI: areaTotal > 0 ? (custosDiretosMEI * 1.2) / areaTotal : 0,
-    precoPorM2CLT: areaTotal > 0 ? (custosDiretosCLT * 1.2) / areaTotal : 0,
+    precoPorM2MEI: areaTotal > 0 ? (custosDiretosMEI * (1 + GLOBAL_PARAMS.bdi)) / areaTotal : 0,
+    precoPorM2CLT: areaTotal > 0 ? (custosDiretosCLT * (1 + GLOBAL_PARAMS.bdi)) / areaTotal : 0,
   }
 }
 
@@ -125,32 +130,45 @@ function buildCenarioEng(
   prazoRequerido: number,
   cSINAPI: number,
   vhQualSem: number,
+  vhQualCom: number,
+  vhServSem: number,
   vhServCom: number,
+  modalidade: 'MEI' | 'CLT',
+  modalidadeAjudante: 'MEI' | 'CLT',
 ): CenarioDetalhadoMO {
   const prod = prodBasica * mult
   const hhP = Q / prod
   const hhA = hhP * propAjudante
-  const nP = Math.max(1, Math.ceil(hhP / (prazoRequerido * 8)))
+  const prazoSeguro = prazoRequerido > 0 ? prazoRequerido : (hhP / 8)
+  const nP = Math.max(1, Math.ceil(hhP / (Math.max(1, prazoSeguro) * 8)))
   const prazoEf = hhP / (nP * 8)
   const nA = Math.max(0, Math.ceil(hhA / (prazoEf * 8)))
-  const custoBase = hhP * vhQualSem * 1.3 + hhA * vhServCom
-  const bonusCenario = Math.max(0, cSINAPI - custoBase) * 0.64
+  const custoAjudanteMEI = modalidadeAjudante === 'MEI' ? hhA * vhServSem * 1.3 : hhA * vhServCom
+  const custoBase = modalidade === 'MEI' ? (hhP * vhQualSem * 1.3 + custoAjudanteMEI) : (hhP * vhQualCom + hhA * vhServCom)
+  const bonusPercentual = modalidade === 'MEI' ? 0.64 : 0.56
+  const bonusCenario = Math.max(0, cSINAPI - custoBase) * bonusPercentual
   return { cenario, produtividade: prod, hhProfissional: hhP, hhAjudante: hhA, profissionaisNecessarios: nP, ajudantesNecessarios: nA, prazoEfetivoDias: prazoEf, custoBase, bonusCenario }
 }
 
 export function calcularMOEngenheiro(config: CalculoMOConfig, params: GlobalParams): CalculoMOResultado {
   const { quantidade: Q, produtividadeBasica, proporcaoAjudante, prazoRequerido } = config
-  const { vhQualSem, vhServCom, vhQualCom } = getCustosHora(params)
+  const { vhQualSem, vhServCom, vhQualCom, vhServSem } = getCustosHora(params)
+  const modalidade = config.modalidade ?? 'MEI'
+  const modalidadeAjudante = config.modalidadeAjudante ?? 'CLT'
+  const adicionalPrazo = config.adicionalProdutividade > 2
+    ? 1 + (config.adicionalProdutividade / 100)
+    : Math.max(1, config.adicionalProdutividade || 1.30)
   const hhProfSin = Q / produtividadeBasica
   const hhAjudSin = hhProfSin * proporcaoAjudante
   const cSINAPI = hhProfSin * vhQualCom + hhAjudSin * vhServCom
-  const mensalista = buildCenarioEng('Mensalista', Q, produtividadeBasica, 0.80, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhServCom)
-  const otima = buildCenarioEng('Ótima', Q, produtividadeBasica, 1.25, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhServCom)
-  const prazo = buildCenarioEng('Prazo', Q, produtividadeBasica, 1.00, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhServCom)
+  const mensalista = buildCenarioEng('Mensalista', Q, produtividadeBasica, 0.80, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhQualCom, vhServSem, vhServCom, modalidade, modalidadeAjudante)
+  const otima = buildCenarioEng('Ótima', Q, produtividadeBasica, 1.25, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhQualCom, vhServSem, vhServCom, modalidade, modalidadeAjudante)
+  const prazo = buildCenarioEng('Prazo', Q, produtividadeBasica, adicionalPrazo, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhQualCom, vhServSem, vhServCom, modalidade, modalidadeAjudante)
   const economia = Math.max(0, cSINAPI - otima.custoBase)
   const valorBonusProducaoMEI = 0.64 * economia
   const valorBonusProducaoCLT = 0.56 * economia
-  const custoFinalMEI = otima.hhProfissional * vhQualSem * 1.3 + otima.hhAjudante * vhServCom + valorBonusProducaoMEI
+  const custoAjudanteMEI = modalidadeAjudante === 'MEI' ? otima.hhAjudante * vhServSem * 1.3 : otima.hhAjudante * vhServCom
+  const custoFinalMEI = otima.hhProfissional * vhQualSem * 1.3 + custoAjudanteMEI + valorBonusProducaoMEI
   const custoFinalCLT = otima.hhProfissional * vhQualCom + otima.hhAjudante * vhServCom + valorBonusProducaoCLT
   const salarioEsperadoMEI = params.salarioQualificado * 1.3
   const salarioEsperadoCLT = params.salarioQualificado * params.fatorEncargos
@@ -170,13 +188,26 @@ export function calcularMOEngenheiro(config: CalculoMOConfig, params: GlobalPara
     valorMensalEsperadoMEI: salarioEsperadoMEI + valorBonusProducaoMEI,
     valorMensalEsperadoCLT: salarioEsperadoCLT + valorBonusProducaoCLT,
     custoFinalMEI, custoFinalCLT,
-    precoFinalMEI: custoFinalMEI * 1.2,
-    precoFinalCLT: custoFinalCLT * 1.2,
+    descontoCliente: 0.30 * economia,
+    precoFinalMEI: custoFinalMEI * (1 + params.bdi),
+    precoFinalCLT: custoFinalCLT * (1 + params.bdi),
   }
 }
 
 export function calcularMatEngenheiro(config: CalculoMatConfig): number {
-  return config.insumos.reduce((s, ins) => s + ins.coeficiente * ins.valorUnitario * config.quantidade, 0)
+  const deduplicados = config.insumos.reduce<Record<string, { coeficiente: number; valorUnitario: number }>>((acc, ins) => {
+    const atual = acc[ins.codigoSINAPI]
+    if (atual) {
+      acc[ins.codigoSINAPI] = {
+        coeficiente: atual.coeficiente + ins.coeficiente,
+        valorUnitario: ins.valorUnitario,
+      }
+      return acc
+    }
+    acc[ins.codigoSINAPI] = { coeficiente: ins.coeficiente, valorUnitario: ins.valorUnitario }
+    return acc
+  }, {})
+  return Object.values(deduplicados).reduce((s, ins) => s + ins.coeficiente * ins.valorUnitario * config.quantidade, 0)
 }
 
 export function consolidarEngenheiro(
@@ -269,7 +300,7 @@ export function calcularFluxoCaixaINCC(
     const base = distribuicao && distribuicao.length === tempoMeses
       ? custoDireto * distribuicao[i]
       : custoDireto / tempoMeses
-    const fator = Math.pow(1 + inccMensal, i + 1)
+    const fator = Math.pow(1 + inccMensal, i)
     const corrigido = base * fator
     totalCorrigido += corrigido
     parcelas.push({ mes: i + 1, custoParcela: base, custoParcelaCorrigido: corrigido, inccAcumulado: fator - 1 })
@@ -291,10 +322,13 @@ export function gerarQuantitativosFromParametros(
     especificacao2: s.especificacao2,
     especificacao3: s.especificacao3,
     composicaoBasica: s.composicaoBasica,
+    composicaoManual: false,
     composicaoProfissionalId: s.composicaoProfissionalId,
     modalidade: 'MEI' as const,
+    modalidadeAjudante: 'CLT' as const,
+    adicionalProdutividade: 1.30,
     origem: 'PLANTA_BASE' as const,
-    prazoRequerido: 0,
+    prazoRequerido: Math.max(1, planta.tempoObraMeses * 22),
   }))
   for (const opc of opcionais.filter(o => o.selecionado)) {
     for (const imp of opc.impactoServicos) {

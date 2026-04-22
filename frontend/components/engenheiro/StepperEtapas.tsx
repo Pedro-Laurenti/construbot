@@ -48,7 +48,24 @@ export default function StepperEtapas({ etapaAtual, etapasConcluidas, onClickEta
           <span>Parâmetros Globais incompletos. Complete-os em Gestão antes de prosseguir.</span>
         </div>
       )}
-      <div className="flex items-center w-full">
+      <div className="sm:hidden mb-3">
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend text-xs">Etapa</legend>
+          <select
+            value={etapaVisivel ?? etapaCorrente}
+            onChange={e => onClickEtapa(e.target.value as Etapa)}
+            className="select select-sm w-full"
+            disabled={!parametrosCompletos}
+          >
+            {ETAPAS.map((etapa, idx) => (
+              <option key={etapa.id} value={etapa.id} disabled={getEstado(etapa.id) === 'bloqueada'}>
+                Etapa {idx + 2}/6 · {etapa.label} {etapa.sub}
+              </option>
+            ))}
+          </select>
+        </fieldset>
+      </div>
+      <div className="hidden sm:flex items-center w-full">
         {ETAPAS.map((etapa, idx) => {
           const estado = getEstado(etapa.id)
           const isActive = estado === 'ativa'

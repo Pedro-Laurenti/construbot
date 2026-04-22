@@ -1,5 +1,5 @@
 import type { AppSession, UserRole, EngineerData } from '@/types'
-import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS, PLANTAS_PADRAO, SEED_CONTA_MOCK } from './mockData'
+import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS, PLANTAS_PADRAO, SEED_CONTA_MOCK, COMPOSICOES_PROFISSIONAIS } from './mockData'
 
 const STORAGE_KEY = 'construbot_v2'
 const CONTAS_KEY = 'construbot_contas'
@@ -93,6 +93,7 @@ function defaultEngineerData(): EngineerData {
     plantas: PLANTAS_PADRAO,
     moduleUIState: {},
     auditTrail: [],
+    composicoesProfissionais: COMPOSICOES_PROFISSIONAIS,
   }
 }
 
@@ -148,7 +149,17 @@ function normalizeEngineerBudget(raw: any, orcamentoId: string, defaults: Engine
 
 function migrateEngineerData(raw: any): EngineerData {
   const base = defaultEngineerData()
-  const merged = { ...base, ...(raw ?? {}) } as EngineerData
+  const merged = {
+    ...base,
+    ...(raw ?? {}),
+    gruposEncargos: {
+      ...base.gruposEncargos,
+      ...(raw?.gruposEncargos ?? {}),
+      grupoC: raw?.gruposEncargos?.grupoC ?? base.gruposEncargos.grupoC,
+      grupoDLinha: raw?.gruposEncargos?.grupoDLinha ?? base.gruposEncargos.grupoDLinha,
+    },
+    composicoesProfissionais: raw?.composicoesProfissionais ?? base.composicoesProfissionais,
+  } as EngineerData
   const normalizedByBudget: Record<string, any> = {}
 
   const existing = merged.orcamentosEngenheiro ?? {}

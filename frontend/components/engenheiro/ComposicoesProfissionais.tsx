@@ -8,10 +8,8 @@ import { MdAdd } from 'react-icons/md'
 
 interface Props { data: EngineerData; onUpdate: (p: Partial<EngineerData>) => void }
 
-const VALOR_META_DIARIO = 220
-
-function calcProds(valorRef: number) {
-  const prodUNh = VALOR_META_DIARIO / (valorRef * 8)
+function calcProds(valorRef: number, valorMetaDiario: number) {
+  const prodUNh = valorRef > 0 ? valorMetaDiario / (valorRef * 8) : 0
   const prodUNdia = prodUNh * 8
   return { produtividadeUNh: prodUNh, produtividadeUNdia: prodUNdia, metaProducaoMes: prodUNdia * 22, metaProducaoSemana: (prodUNdia * 22) / 4.33 }
 }
@@ -29,7 +27,7 @@ const CATEGORIA_LABEL: Record<string, string> = {
 }
 
 export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
-  const [composicoes, setComposicoes] = useState<ComposicaoProfissional[]>(COMPOSICOES_PROFISSIONAIS)
+  const [composicoes, setComposicoes] = useState<ComposicaoProfissional[]>(data.composicoesProfissionais ?? COMPOSICOES_PROFISSIONAIS)
   const ui = getModuleUiState(data, 'composicoes-profissionais')
   const [aba, setAba] = useState<'composicoes' | 'hidraulica'>((ui.abaAtiva as 'composicoes' | 'hidraulica') ?? 'composicoes')
   const [showModal, setShowModal] = useState(false)
@@ -40,15 +38,25 @@ export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
       if (c.id !== id) return c
       const updated = { ...c, [field]: value }
       if (field === 'valorRefMetaDiaria') {
-        const prods = calcProds(value as number)
+        const prods = calcProds(value as number, data.globalParams.valorMetaDiario)
         return { ...updated, ...prods }
       }
       return updated
     }))
+    const next = composicoes.map(c => {
+      if (c.id !== id) return c
+      const updated = { ...c, [field]: value }
+      if (field === 'valorRefMetaDiaria') {
+        const prods = calcProds(value as number, data.globalParams.valorMetaDiario)
+        return { ...updated, ...prods }
+      }
+      return updated
+    })
+    onUpdate({ composicoesProfissionais: next })
   }
 
   function addComp() {
-    const prods = calcProds(novaComp.valorRefMetaDiaria ?? 1)
+    const prods = calcProds(novaComp.valorRefMetaDiaria ?? 1, data.globalParams.valorMetaDiario)
     const newItem: ComposicaoProfissional = {
       id: Math.max(...composicoes.map(c => c.id)) + 1,
       ...prods,
@@ -62,8 +70,10 @@ export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
       producaoMensalSINAPI: novaComp.producaoMensalSINAPI ?? 0,
       valorRefMetaDiaria: novaComp.valorRefMetaDiaria ?? 0,
     }
-    setComposicoes(prev => [...prev, newItem])
+    const updatedComposicoes = [...composicoes, newItem]
+    setComposicoes(updatedComposicoes)
     onUpdate({
+      composicoesProfissionais: updatedComposicoes,
       auditTrail: appendAuditEvent(data, {
         usuario: 'engenheiro_local',
         modulo: 'composicoes-profissionais',
@@ -94,45 +104,55 @@ export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
       </div>
 
       {aba === 'composicoes' && (
-        <div className="card bg-base-100 shadow overflow-x-auto">
-          <table className="table table-xs">
-            <thead>
-              <tr>
-                <th>ID</th><th>Categoria</th><th>Profissional</th><th>Serviço</th><th>Ref.SINAPI</th><th>UN</th>
-                <th className="text-right">Prod.Mensal SINAPI</th>
-                <th className="text-right">Val.Ref Meta (R$/UN)</th>
-                <th className="text-right">Prod.UN/h</th><th className="text-right">Prod.UN/dia</th>
-                <th className="text-right">Meta Mês</th><th className="text-right">Meta Sem.</th>
-                <th className="text-right">Meta Estip.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {composicoes.map(c => (
-                <tr key={c.id} className="hover">
-                  <td>{c.id}</td>
-                  <td className="text-xs max-w-[120px] truncate">{CATEGORIA_LABEL[c.categoria] ?? c.categoria.replace(/_/g, ' ')}</td>
-                  <td className="text-xs">{c.profissional}</td>
-                  <td className="text-xs max-w-[150px] truncate">{c.servico}</td>
-                  <td className="font-mono text-xs">{c.refSINAPI}</td>
-                  <td className="text-xs">{c.unidade}</td>
-                  <td className="text-right">
-                    <input type="number" value={c.producaoMensalSINAPI} onChange={e => updateComp(c.id, 'producaoMensalSINAPI', parseFloat(e.target.value) || 0)} className="input input-xs w-20 text-right" />
-                  </td>
-                  <td className="text-right">
-                    <input type="number" step="0.01" value={c.valorRefMetaDiaria} onChange={e => updateComp(c.id, 'valorRefMetaDiaria', parseFloat(e.target.value) || 0)} className="input input-xs w-20 text-right" />
-                  </td>
-                  <td className="text-right font-mono text-xs">{c.produtividadeUNh.toFixed(2)}</td>
-                  <td className="text-right font-mono text-xs">{c.produtividadeUNdia.toFixed(2)}</td>
-                  <td className="text-right font-mono text-xs">{c.metaProducaoMes.toFixed(1)}</td>
-                  <td className="text-right font-mono text-xs">{c.metaProducaoSemana.toFixed(1)}</td>
-                  <td className="text-right">
-                    <input type="number" step="0.1" value={c.metaEstipulada ?? ''} onChange={e => updateComp(c.id, 'metaEstipulada', parseFloat(e.target.value) || 0)} placeholder="—" className="input input-xs w-20 text-right" />
-                  </td>
+        composicoes.length === 0 ? (
+          <div className="card bg-base-100 shadow">
+            <div className="card-body items-center py-10 gap-2">
+              <p className="text-base-content/40 text-sm">Nenhuma composição profissional cadastrada.</p>
+              <p className="text-sm font-medium">Cadastre a primeira composição para liberar metas e comparativos.</p>
+              <button onClick={() => setShowModal(true)} className="btn btn-primary btn-sm">Adicionar primeira composição</button>
+            </div>
+          </div>
+        ) : (
+          <div className="card bg-base-100 shadow overflow-x-auto">
+            <table className="table table-xs">
+              <thead>
+                <tr>
+                  <th>ID</th><th>Categoria</th><th>Profissional</th><th>Serviço</th><th>Ref.SINAPI</th><th>UN</th>
+                  <th className="text-right">Prod.Mensal SINAPI</th>
+                  <th className="text-right">Val.Ref Meta (R$/UN)</th>
+                  <th className="text-right">Prod.UN/h</th><th className="text-right">Prod.UN/dia</th>
+                  <th className="text-right">Meta Mês</th><th className="text-right">Meta Sem.</th>
+                  <th className="text-right">Meta Estip.</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {composicoes.map(c => (
+                  <tr key={c.id} className="hover">
+                    <td>{c.id}</td>
+                    <td className="text-xs max-w-[120px] truncate">{CATEGORIA_LABEL[c.categoria] ?? c.categoria.replace(/_/g, ' ')}</td>
+                    <td className="text-xs">{c.profissional}</td>
+                    <td className="text-xs max-w-[150px] truncate">{c.servico}</td>
+                    <td className="font-mono text-xs">{c.refSINAPI}</td>
+                    <td className="text-xs">{c.unidade}</td>
+                    <td className="text-right">
+                      <input type="number" value={c.producaoMensalSINAPI} onChange={e => updateComp(c.id, 'producaoMensalSINAPI', parseFloat(e.target.value) || 0)} className="input input-xs w-20 text-right" />
+                    </td>
+                    <td className="text-right">
+                      <input type="number" step="0.01" value={c.valorRefMetaDiaria} onChange={e => updateComp(c.id, 'valorRefMetaDiaria', parseFloat(e.target.value) || 0)} className="input input-xs w-20 text-right" />
+                    </td>
+                    <td className="text-right font-mono text-xs">{c.produtividadeUNh.toFixed(2)}</td>
+                    <td className="text-right font-mono text-xs">{c.produtividadeUNdia.toFixed(2)}</td>
+                    <td className="text-right font-mono text-xs">{c.metaProducaoMes.toFixed(1)}</td>
+                    <td className="text-right font-mono text-xs">{c.metaProducaoSemana.toFixed(1)}</td>
+                    <td className="text-right">
+                      <input type="number" step="0.1" value={c.metaEstipulada ?? ''} onChange={e => updateComp(c.id, 'metaEstipulada', parseFloat(e.target.value) || 0)} placeholder="—" className="input input-xs w-20 text-right" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       {aba === 'hidraulica' && (

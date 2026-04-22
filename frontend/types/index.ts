@@ -1,6 +1,5 @@
 export interface GlobalParams {
   bdi: number
-  encargosPercentual: number
   fatorEncargos: number
   salarioQualificado: number
   salarioMeioOficial: number
@@ -74,6 +73,7 @@ export interface ItemResultado {
   custoUnitarioCLT: number
   bonusConstrutoraMEI: number
   bonusConstrutoralCLT: number
+  descontoCliente: number
   precoFinalMEI: number
   precoFinalCLT: number
 }
@@ -89,6 +89,8 @@ export interface OrcamentoItem {
   quantidade: number
   prazoRequerido: number
   modalidade: ContratoModalidade
+  modalidadeAjudante?: ContratoModalidade
+  adicionalProdutividade?: number
   resultado?: ItemResultado
 }
 
@@ -165,6 +167,7 @@ export interface InsumoSINAPI {
   unidade: string
   classificacao: 'MATERIAL' | 'SERVICOS' | 'EQUIPAMENTO'
   origemPreco: 'C' | 'CR'
+  sinapiRef?: string
   precos: Record<string, number | null>
 }
 
@@ -182,6 +185,7 @@ export interface ComposicaoAnalitica {
   grupo: string
   descricao: string
   unidade: string
+  sinapiRef?: string
   itens: ItemComposicao[]
 }
 
@@ -242,6 +246,8 @@ export interface CalculoMOConfig {
   proporcaoAjudante: number
   rsUN: number
   prazoRequerido: number
+  modalidade?: ContratoModalidade
+  modalidadeAjudante?: ContratoModalidade
 }
 
 export interface CenarioDetalhadoMO {
@@ -278,6 +284,7 @@ export interface CalculoMOResultado {
   valorMensalEsperadoCLT: number
   custoFinalMEI: number
   custoFinalCLT: number
+  descontoCliente: number
   precoFinalMEI: number
   precoFinalCLT: number
 }
@@ -339,7 +346,9 @@ export interface ItemGrupoEncargo {
 export interface GruposEncargos {
   grupoA: ItemGrupoEncargo[]
   grupoB: ItemGrupoEncargo[]
+  grupoC: ItemGrupoEncargo[]
   grupoD: ItemGrupoEncargo[]
+  grupoDLinha: ItemGrupoEncargo[]
   grupoE: ItemGrupoEncargo[]
 }
 
@@ -436,6 +445,7 @@ export interface SaidaCliente {
   tabelaAportes: AporteMensal[]
   prazoTotalObraMeses: number
   precoFinalObra: number
+  sinapiRef?: string
 }
 
 export interface CondicoesFinanciamento {
@@ -485,8 +495,11 @@ export interface QuantitativoServico {
   especificacao2: string
   especificacao3: string
   composicaoBasica: string
+  composicaoManual?: boolean
   composicaoProfissionalId: number
   modalidade: ContratoModalidade
+  modalidadeAjudante?: ContratoModalidade
+  adicionalProdutividade?: number
   origem: 'PLANTA_BASE' | 'OPCIONAL' | 'PERSONALIZACAO'
   prazoRequerido: number
 }
@@ -576,6 +589,8 @@ export interface OrcamentoEngenheiro {
   versaoParametrosE2?: string
   versaoParametrosE4?: string
   versaoParametrosE6?: string
+  parametrosObsoletos?: boolean
+  sinapiRef?: string
   uiState?: OrcamentoWizardUIState
 }
 
@@ -612,4 +627,5 @@ export interface EngineerData {
   plantas: PlantaPadrao[]
   moduleUIState: Record<string, ModuleUIState>
   auditTrail: AuditEventEngenharia[]
+  composicoesProfissionais?: ComposicaoProfissional[]
 }

@@ -20,7 +20,7 @@ function defaultConfig(id: string, servico: string, unidade: string, quantidade:
     servicoId: id, servico, unidade, quantidade,
     especificacao1: specs[0] ?? '', especificacao2: specs[1] ?? '',
     composicaoBasica: comp,
-    produtividadeBasica: 1.0, adicionalProdutividade: 0, proporcaoAjudante: 0.5,
+    produtividadeBasica: 1.0, adicionalProdutividade: 1.3, proporcaoAjudante: 0.5,
     rsUN: 0, prazoRequerido: 30,
   }
 }
@@ -73,6 +73,10 @@ function CenarioCard({ c, isSelected, onSelect, prazoRequerido }: { c: CenarioDe
 export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, onUpdateEng }: Props) {
   const modoWizard = !!orcamentoId && !!engData
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const MODALIDADE_LABEL: Record<ContratoModalidade, string> = {
+    MEI: 'MEI',
+    CLT: 'CLT',
+  }
 
   const itensLista = modoWizard
     ? (engData!.quantitativos ?? []).map(q => ({
@@ -98,8 +102,10 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
       base[item.id] = {
         ...defaultConfig(item.id, item.servico, item.unidade, item.quantidade, [item.especificacao1, item.especificacao2], item.composicaoBasica),
         produtividadeBasica: cp?.produtividadeUNh ?? 1.0,
+        adicionalProdutividade: qt?.adicionalProdutividade ?? 1.3,
         rsUN: cp?.valorRefMetaDiaria ?? 0,
         prazoRequerido: qt?.prazoRequerido ?? 30,
+        modalidadeAjudante: qt?.modalidadeAjudante ?? 'CLT',
       }
     })
     return base
@@ -133,6 +139,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
     })
     return base
   })
+  const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({})
 
   const [selected, setSelected] = useState<string | null>(() => {
     if (modoWizard) return engData?.uiState?.servicoSelecionadoE4 ?? itensLista[0]?.id ?? null
@@ -152,24 +159,20 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
   }, [selected, configs])
 
   function updateConfig(id: string, partial: Partial<CalculoMOConfig>) {
+    setDirtyMap(prev => ({ ...prev, [id]: true }))
     setConfigs(prev => ({ ...prev, [id]: { ...prev[id], ...partial } }))
   }
 
   function calcular(id: string) {
     const cfg = configs[id]
     if (!cfg || cfg.quantidade <= 0 || cfg.produtividadeBasica <= 0) return
-    const resultado = calcularMOEngenheiro(cfg, data.globalParams)
+    const cfgCalculo = {
+      ...cfg,
+      modalidade: modalidades[id] ?? 'MEI',
+    }
+    const resultado = calcularMOEngenheiro(cfgCalculo, data.globalParams)
     setResultados(prev => ({ ...prev, [id]: resultado }))
-    if (modoWizard && onUpdateEng) {
-      const cenario: CenarioMOServico = {
-        config: cfg,
-        resultado,
-        cenarioEscolhido: cenarioSel[id] ?? 'Ótima',
-        modalidade: modalidades[id] ?? 'MEI',
-        salvoEm: new Date().toISOString(),
-      }
-      onUpdateEng({ calculosMO: { ...engData!.calculosMO, [id]: cenario } })
-    } else {
+    if (!modoWizard) {
       onUpdate({ calculoMOConfigs: { ...data.calculoMOConfigs, [id]: cfg }, calculoMOResults: { ...data.calculoMOResults, [id]: resultado } })
     }
   }
@@ -187,15 +190,20 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
     }
     const updatedMO = { ...engData!.calculosMO, [id]: cenario }
     onUpdateEng({ calculosMO: updatedMO })
+    setDirtyMap(prev => ({ ...prev, [id]: false }))
     const nextPendingId = itensLista.find(item => item.id !== id && !updatedMO[item.id])?.id ?? null
     if (nextPendingId) setSelected(nextPendingId)
   }
 
   const config = selected ? configs[selected] : null
   const resultado = selected ? resultados[selected] : undefined
-  const prodRequerida = config ? config.produtividadeBasica * (1 + config.adicionalProdutividade / 100) : 0
+  const adicionalProd = config
+    ? (config.adicionalProdutividade > 2 ? 1 + (config.adicionalProdutividade / 100) : config.adicionalProdutividade)
+    : 1
+  const prodRequerida = config ? config.produtividadeBasica * adicionalProd : 0
   const cenAtual = (selected && resultado) ? (cenarioSel[selected] === 'Mensalista' ? resultado.mensalista : cenarioSel[selected] === 'Prazo' ? resultado.prazo : resultado.otima) : null
   const salvos = modoWizard ? itensLista.filter(i => !!engData!.calculosMO[i.id]).length : 0
+  const prazoInviavel = !!(config && resultado && (resultado.prazo.prazoEfetivoDias - config.prazoRequerido) / Math.max(1, config.prazoRequerido) > 0.2)
 
   if (itensLista.length === 0) {
     return (
@@ -247,7 +255,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   {([
                     { label: 'Prod. SINAPI (UN/h)', key: 'produtividadeBasica', step: '0.001', sub: 'Velocidade de referência oficial do SINAPI para este serviço' },
-                    { label: 'Adicional Prod. (%)', key: 'adicionalProdutividade', step: '0.1', sub: '0% = ritmo SINAPI. 30% = 30% acima do SINAPI (cenário Ótimo).' },
+                    { label: 'Adicional Prod. (x)', key: 'adicionalProdutividade', step: '0.01', sub: 'Multiplicador do cenário de prazo. 1,00 = SINAPI. 1,30 = 30% acima.' },
                     { label: 'Proporção Ajudante', key: 'proporcaoAjudante', step: '0.1', sub: 'Número de ajudantes por profissional qualificado. Ex: 0,5 = 1 ajudante para 2 profissionais.' },
                     { label: 'R$/UN SINAPI', key: 'rsUN', step: '0.01', sub: 'Custo por unidade segundo o SINAPI — base para calcular a economia e o bônus.' },
                     { label: 'Prazo Requerido (d)', key: 'prazoRequerido', step: '1', sub: 'Prazo máximo disponível para executar este serviço (dias corridos).' },
@@ -290,7 +298,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
                   <div className="mt-3">
                     <div className="flex items-center justify-between mb-1">
                       <p className="font-semibold text-xs">Contratação MEI vs CLT</p>
-                      <select className="select select-xs" value={modalidades[selected] ?? 'MEI'} onChange={e => setModalidades(prev => ({ ...prev, [selected]: e.target.value as ContratoModalidade }))}>
+                      <select className="select select-xs" value={modalidades[selected] ?? 'MEI'} onChange={e => { setModalidades(prev => ({ ...prev, [selected]: e.target.value as ContratoModalidade })); setDirtyMap(prev => ({ ...prev, [selected]: true })) }}>
                         <option value="MEI">MEI</option>
                         <option value="CLT">CLT</option>
                       </select>
@@ -313,9 +321,15 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
                         ))}
                       </tbody>
                     </table>
+                    <p className="text-xs text-base-content/50 mt-2">Modalidade ativa: {MODALIDADE_LABEL[modalidades[selected] ?? 'MEI']}</p>
                   </div>
                 </div>
               </details>
+            )}
+            {prazoInviavel && (
+              <div className="alert alert-warning text-xs">
+                Prazo requerido impossível com equipe atual. Considere aumentar o adicional de produtividade ou ampliar o prazo.
+              </div>
             )}
           </div>
 
@@ -324,11 +338,38 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
               <div className="grid grid-cols-3 gap-2">
                 {(['Mensalista', 'Ótima', 'Prazo'] as const).map(nome => {
                   const c = nome === 'Mensalista' ? resultado.mensalista : nome === 'Ótima' ? resultado.otima : resultado.prazo
-                  return <CenarioCard key={nome} c={c} isSelected={(cenarioSel[selected] ?? 'Ótima') === nome} onSelect={() => setCenarioSel(prev => ({ ...prev, [selected]: nome }))} prazoRequerido={config?.prazoRequerido} />
+                  return <CenarioCard key={nome} c={c} isSelected={(cenarioSel[selected] ?? 'Ótima') === nome} onSelect={() => { setCenarioSel(prev => ({ ...prev, [selected]: nome })); setDirtyMap(prev => ({ ...prev, [selected]: true })) }} prazoRequerido={config?.prazoRequerido} />
                 })}
               </div>
               <div className="card bg-base-100 shadow">
                 <div className="card-body p-3 gap-2">
+                  <div className="overflow-x-auto">
+                    <table className="table table-xs">
+                      <thead>
+                        <tr><th>Indicador</th><th className="text-right">Mensalista</th><th className="text-right">Ótima</th><th className="text-right">Prazo</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="text-xs">Produtividade</td>
+                          <td className="text-right font-mono text-xs">{resultado.mensalista.produtividade.toFixed(2)}</td>
+                          <td className="text-right font-mono text-xs">{resultado.otima.produtividade.toFixed(2)}</td>
+                          <td className="text-right font-mono text-xs">{resultado.prazo.produtividade.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <td className="text-xs">Prazo (dias)</td>
+                          <td className="text-right font-mono text-xs">{resultado.mensalista.prazoEfetivoDias.toFixed(1)}</td>
+                          <td className="text-right font-mono text-xs">{resultado.otima.prazoEfetivoDias.toFixed(1)}</td>
+                          <td className="text-right font-mono text-xs">{resultado.prazo.prazoEfetivoDias.toFixed(1)}</td>
+                        </tr>
+                        <tr>
+                          <td className="text-xs">Custo Base</td>
+                          <td className="text-right font-mono text-xs">{formatCurrency(resultado.mensalista.custoBase)}</td>
+                          <td className="text-right font-mono text-xs">{formatCurrency(resultado.otima.custoBase)}</td>
+                          <td className="text-right font-mono text-xs">{formatCurrency(resultado.prazo.custoBase)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                   <table className="table table-xs">
                     <tbody>
                       <tr><td className="text-xs">Custo/UN MEI</td><td className="text-right font-mono text-xs">{formatCurrency(config.quantidade > 0 ? resultado.custoFinalMEI / config.quantidade : 0)}</td></tr>
@@ -342,9 +383,12 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
                     </tbody>
                   </table>
                   {modoWizard && (
-                    <button onClick={() => salvarEscolha(selected)} className="btn btn-success btn-sm gap-1 mt-1">
+                    <>
+                      {dirtyMap[selected] && <p className="text-xs text-warning">Alterações não salvas</p>}
+                      <button onClick={() => salvarEscolha(selected)} className="btn btn-success btn-sm gap-1 mt-1">
                       <MdCheckCircle size={14} /> Salvar escolha
-                    </button>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

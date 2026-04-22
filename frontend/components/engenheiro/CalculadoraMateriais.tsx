@@ -25,6 +25,8 @@ function defaultMatConfig(id: string, servico: string, unidade: string, quantida
 
 export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engData, onUpdateEng }: Props) {
   const modoWizard = !!orcamentoId && !!engData
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({})
+  const [confirmDelete, setConfirmDelete] = useState<{ servicoId: string; idx: number } | null>(null)
 
   const itensLista = modoWizard
     ? (engData!.quantitativos ?? []).map(q => ({ id: q.id, servico: q.serviceType, unidade: q.unidade, quantidade: q.quantidade, composicaoBasica: q.composicaoBasica }))
@@ -100,7 +102,6 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
   function addInsumo(servicoId: string) {
     setConfigs(prev => {
       const cfg = prev[servicoId]
-      if (cfg.insumos.length >= 5) return prev
       return { ...prev, [servicoId]: { ...cfg, insumos: [...cfg.insumos, emptyInsumo()] } }
     })
   }
@@ -116,7 +117,26 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
     const cfg = configs[servicoId]
     if (modoWizard && onUpdateEng) {
       const updatedMat = { ...engData!.calculosMat, [servicoId]: cfg }
-      onUpdateEng({ calculosMat: updatedMat })
+      const consultaAtual = engData!.consultasSINAPI[servicoId]
+      const consultasAtualizadas = consultaAtual
+        ? {
+            ...engData!.consultasSINAPI,
+            [servicoId]: {
+              ...consultaAtual,
+              insumos: cfg.insumos.map(ins => ({
+                codigo: ins.codigoSINAPI,
+                descricao: ins.descricao,
+                unidade: ins.unidade,
+                coeficiente: ins.coeficiente,
+                valorUnitario: ins.valorUnitario,
+                total: ins.coeficiente * ins.valorUnitario,
+                isFallbackSP: consultaAtual.insumos.find(i => i.codigo === ins.codigoSINAPI)?.isFallbackSP ?? false,
+              })),
+              subtotal: cfg.insumos.reduce((sum, ins) => sum + ins.coeficiente * ins.valorUnitario, 0),
+            },
+          }
+        : engData!.consultasSINAPI
+      onUpdateEng({ calculosMat: updatedMat, consultasSINAPI: consultasAtualizadas })
       const nextPendingId = itensLista.find(item => item.id !== servicoId && !updatedMat[item.id])?.id ?? null
       if (nextPendingId) setSelected(nextPendingId)
     } else {
@@ -200,7 +220,8 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
                   <tr><th>Cód. SINAPI</th><th>Descrição</th><th>UN</th><th className="text-right">Coef./UN</th><th className="text-right">Valor Unit.</th><th className="text-right">Custo/UN</th><th className="text-right">Total</th><th></th></tr>
               </thead>
               <tbody>
-                {cfg.insumos.map((ins, idx) => {
+                {(showAll[selected] ? cfg.insumos : cfg.insumos.slice(0, 5)).map((ins, idx) => {
+                  const realIdx = showAll[selected] ? idx : idx
                   const fallback = isFallbackSP(ins.codigoSINAPI)
                   const total = ins.coeficiente * ins.valorUnitario * cfg.quantidade
                   return (
@@ -229,7 +250,7 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
                       </td>
                       <td className="text-right font-mono text-xs">{formatCurrency(ins.coeficiente * ins.valorUnitario)}</td>
                       <td className="text-right font-mono text-xs">{formatCurrency(total)}</td>
-                      <td><button onClick={() => removeInsumo(selected, idx)} className="btn btn-ghost btn-xs text-error">×</button></td>
+                      <td><button onClick={() => setConfirmDelete({ servicoId: selected, idx: realIdx })} className="btn btn-ghost btn-xs text-error">×</button></td>
                     </tr>
                   )
                 })}
@@ -247,9 +268,12 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
                 </tr>
               </tfoot>
             </table>
-            {cfg.insumos.length < 5 && (
-              <button onClick={() => addInsumo(selected)} className="btn btn-ghost btn-xs mt-2">+ Adicionar insumo</button>
+            {cfg.insumos.length > 5 && (
+              <button onClick={() => setShowAll(prev => ({ ...prev, [selected]: !prev[selected] }))} className="btn btn-ghost btn-xs mt-2 mr-2">
+                {showAll[selected] ? 'Mostrar 5 principais' : 'Ver todos os insumos'}
+              </button>
             )}
+            <button onClick={() => addInsumo(selected)} className="btn btn-ghost btn-xs mt-2">+ Adicionar insumo</button>
             {impactoFallbackServico > 0 && (
               <div className="mt-3 alert alert-warning text-xs py-2">
                 Impacto de fallback SP neste serviço: {formatCurrency(impactoFallbackServico)}
@@ -284,11 +308,11 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
             </div>
             <div className="bg-base-200 rounded p-3 text-center">
               <p className="text-xs text-base-content/50">BDI 20%</p>
-              <p className="font-mono font-bold">{formatCurrency(totalGeral * 0.2)}</p>
+                  <p className="font-mono font-bold">{formatCurrency(totalGeral * data.globalParams.bdi)}</p>
             </div>
             <div className="bg-base-200 rounded p-3 text-center">
               <p className="text-xs text-base-content/50">Preço Final Mat.</p>
-              <p className="font-mono font-bold">{formatCurrency(totalGeral * 1.2)}</p>
+                  <p className="font-mono font-bold">{formatCurrency(totalGeral * (1 + data.globalParams.bdi))}</p>
             </div>
           </div>
         </div>
@@ -301,6 +325,19 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
             <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
           </div>
           <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
+        </div>
+      )}
+      {confirmDelete && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">Confirmar exclusão</h3>
+            <p className="text-sm text-base-content/70">Deseja remover este insumo da composição?</p>
+            <div className="modal-action">
+              <button onClick={() => setConfirmDelete(null)} className="btn btn-sm btn-ghost">Cancelar</button>
+              <button onClick={() => { removeInsumo(confirmDelete.servicoId, confirmDelete.idx); setConfirmDelete(null) }} className="btn btn-sm btn-error">Remover</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setConfirmDelete(null)} />
         </div>
       )}
     </div>

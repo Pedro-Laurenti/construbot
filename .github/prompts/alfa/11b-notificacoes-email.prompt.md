@@ -1,0 +1,3 @@
+# Notificações por Email — ACS + Fila + Templates
+
+Escopo: camada genérica de notificações. Azure Communication Services (Email) com domínio verificado (SPF/DKIM/DMARC), autenticação via Managed Identity. Storage Queue (mesmo Storage Account da etapa 01) desacoplando emissão de envio. Azure Function Queue Trigger processa a fila com retry/poison queue. Templates versionados em Tables (HTML + variáveis de domínio). Gatilhos de domínio: `orcamento.entregue`, `orcamento.reaberto`, `sinapi.atualizacao.disponivel`, `orcamento.obsoleto`. Auditoria em `NotificacoesEnviadas` (destinatário, template, status, bounce). Flag `emailOptIn` no cliente + link de descadastro (LGPD). Integra com etapa 11 (observabilidade).

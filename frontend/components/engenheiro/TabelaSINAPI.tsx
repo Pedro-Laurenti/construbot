@@ -41,7 +41,7 @@ export default function TabelaSINAPI({ uf, onUfChange, data, onUpdate }: Props) 
     <div className="flex flex-col gap-4 max-w-full">
       <div>
         <h1 className="text-2xl font-bold">SINAPI — Insumos (ISE)</h1>
-        <p className="text-base-content/50 text-sm">Referência SINAPI Janeiro/2026 — 4.861 insumos (exibindo amostra representativa)</p>
+        <p className="text-base-content/50 text-sm">Referência SINAPI Janeiro/2026 — 4.861 insumos (amostra: insumos mais usados no fluxo do dashboard)</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -97,7 +97,7 @@ export default function TabelaSINAPI({ uf, onUfChange, data, onUpdate }: Props) 
                     {valor !== null ? (
                       <span className="flex items-center gap-1">
                         R$ {valor.toFixed(2)}
-                        {fallback && <span className="badge badge-xs badge-warning">SP</span>}
+                        {fallback && <span className="badge badge-xs badge-warning" title="Preço de SP usado como fallback">SP</span>}
                       </span>
                     ) : (
                       <span className="text-base-content/30">—</span>
