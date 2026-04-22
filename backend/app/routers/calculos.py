@@ -12,6 +12,9 @@ from app.services.orcamento_service import (
     calcular_fluxo_caixa_incc,
     calcular_parcela_price,
     calcular_precificacao_completa,
+    calcular_faixa_cotacao,
+    consolidar_engenheiro,
+    gerar_quantitativos_from_parametros,
 )
 from app.utils.config import (
     CM_ENCARGOS_GRUPO_A, CM_ENCARGOS_GRUPO_B, CM_ENCARGOS_GRUPO_D,
@@ -72,6 +75,7 @@ class SalarioCalculado(BaseModel):
     salario_com_encargos: float
     diaria_sem_encargos: float
     diaria_com_encargos: float
+    diaria_custo_total_encargos: float
     valor_hora_sem_encargos: float
     valor_hora_com_encargos: float
 
@@ -87,12 +91,15 @@ class ServicoMORequest(BaseModel):
     servico_nome: str
     unidade: str
     quantidade: float
+    composicao_basica: Optional[str] = None
+    especificacao1: Optional[str] = None
     produtividade_basica_unh: float
     adicional_produtividade: float = 1.3
     proporcao_ajudante: float
     rs_un_sinapi: float
     prazo_requerido_dias: int
     modalidade: ContratoModalidade
+    modalidade_ajudante: ContratoModalidade = ContratoModalidade.CLT
     salario_qualificado: float = CM_SALARIO_QUALIFICADO
     salario_servente: float = CM_SALARIO_SERVENTE
     fator_encargos: float = CM_FATOR_ENCARGOS
@@ -123,6 +130,7 @@ class ServicoMOResponse(BaseModel):
     c_sinapi: float
     economia: float
     bonus_cliente: float
+    desconto_cliente: float
     bonus_profissional: float
     bonus_construtora: float
     remuneracao_mei: float
@@ -241,6 +249,129 @@ class PrecificacaoResponse(BaseModel):
     fluxo_caixa_clt: list[FluxoCaixaMensalResponse]
 
 
+class ParametrosFaixaRequest(BaseModel):
+    bdi: float = CM_BDI_PADRAO
+    fator_encargos: float = CM_FATOR_ENCARGOS
+    salario_qualificado: float = CM_SALARIO_QUALIFICADO
+    salario_servente: float = CM_SALARIO_SERVENTE
+
+
+class ImpactoOpcionalRequest(BaseModel):
+    tipo: str
+    service_type: str
+    incremento_quantidade: Optional[float] = None
+
+
+class OpcionalQuantitativoRequest(BaseModel):
+    selecionado: bool
+    impacto_servicos: list[ImpactoOpcionalRequest]
+
+
+class ServicoPlantaRequest(BaseModel):
+    service_type: str
+    descricao: str
+    unidade: str
+    quantidade: float
+    especificacao1: str = ""
+    especificacao2: str = ""
+    especificacao3: str = ""
+    composicao_basica: str = ""
+    composicao_profissional_id: int = 0
+
+
+class PlantaQuantitativoRequest(BaseModel):
+    id: str
+    tempo_obra_meses: int
+    servicos: list[ServicoPlantaRequest]
+
+
+class QuantitativoServicoResponse(BaseModel):
+    id: str
+    service_type: str
+    descricao: str
+    unidade: str
+    quantidade: float
+    especificacao1: str
+    especificacao2: str
+    especificacao3: str
+    composicao_basica: str
+    composicao_manual: bool
+    composicao_profissional_id: int
+    modalidade: ContratoModalidade
+    modalidade_ajudante: ContratoModalidade
+    adicional_produtividade: float
+    origem: str
+    prazo_requerido: int
+
+
+class GerarQuantitativosRequest(BaseModel):
+    planta: PlantaQuantitativoRequest
+    opcionais: list[OpcionalQuantitativoRequest]
+
+
+class GerarQuantitativosResponse(BaseModel):
+    quantitativos: list[QuantitativoServicoResponse]
+
+
+class FaixaCotacaoRequest(BaseModel):
+    quantitativos: list[QuantitativoServicoResponse]
+    parametros: ParametrosFaixaRequest = ParametrosFaixaRequest()
+    incc_mensal: float = CM_INCC_MENSAL_PADRAO
+    tempo_obra_meses: int
+
+
+class FaixaCotacaoResponse(BaseModel):
+    minimo: float
+    maximo: float
+    area_construida_m2: float
+    tempo_obra_meses: int
+
+
+class InsumoCalculoRequest(BaseModel):
+    codigo_sinapi: str
+    descricao: str
+    unidade: str
+    coeficiente: float
+    valor_unitario: float
+    total: float = 0
+
+
+class CalculoMatConfigRequest(BaseModel):
+    servico_id: str
+    servico: str
+    unidade: str
+    quantidade: float
+    composicao_basica: str
+    insumos: list[InsumoCalculoRequest]
+
+
+class ConsolidacaoRequest(BaseModel):
+    orcamento_id: str
+    cliente_id: str
+    resultados_mo: dict[str, ServicoMOResponse]
+    configs_mat: dict[str, CalculoMatConfigRequest]
+    area_total: float
+    bdi: float = CM_BDI_PADRAO
+
+
+class ConsolidacaoResponse(BaseModel):
+    orcamento_id: str
+    cliente_id: str
+    custo_mo_total_mei: float
+    custo_mo_total_clt: float
+    custo_mat_total: float
+    custos_diretos_mei: float
+    custos_diretos_clt: float
+    custos_diretos_por_m2_mei: float
+    custos_diretos_por_m2_clt: float
+    preco_final_mei: float
+    preco_final_clt: float
+    preco_por_m2_mei: float
+    preco_por_m2_clt: float
+    status: str
+    observacoes: str
+
+
 @router.get("/calculos/parametros-padrao")
 async def parametros_padrao() -> Dict[str, Any]:
     enc = calcular_encargos(CM_ENCARGOS_GRUPO_A, CM_ENCARGOS_GRUPO_B,
@@ -301,6 +432,8 @@ async def post_mao_de_obra(req: ServicoMORequest) -> ServicoMOResponse:
         req.quantidade, req.produtividade_basica_unh, req.adicional_produtividade,
         req.proporcao_ajudante, req.prazo_requerido_dias, req.salario_qualificado,
         req.salario_servente, req.fator_encargos, CM_BDI_PADRAO,
+        req.modalidade.value, req.modalidade_ajudante.value,
+        req.composicao_basica, req.especificacao1,
     )
     return ServicoMOResponse(
         servico_id=req.servico_id,
@@ -347,3 +480,38 @@ async def post_precificacao(req: PrecificacaoRequest) -> PrecificacaoResponse:
         req.distribuicao_mensal,
     )
     return PrecificacaoResponse(**result)
+
+
+@router.post("/calculos/quantitativos", response_model=GerarQuantitativosResponse)
+async def post_quantitativos(req: GerarQuantitativosRequest) -> GerarQuantitativosResponse:
+    result = gerar_quantitativos_from_parametros(
+        req.planta.model_dump(),
+        [opcional.model_dump() for opcional in req.opcionais],
+    )
+    return GerarQuantitativosResponse(
+        quantitativos=[QuantitativoServicoResponse(**quantitativo) for quantitativo in result],
+    )
+
+
+@router.post("/calculos/faixa-cotacao", response_model=FaixaCotacaoResponse)
+async def post_faixa_cotacao(req: FaixaCotacaoRequest) -> FaixaCotacaoResponse:
+    result = calcular_faixa_cotacao(
+        [quantitativo.model_dump() for quantitativo in req.quantitativos],
+        req.parametros.model_dump(),
+        req.incc_mensal,
+        req.tempo_obra_meses,
+    )
+    return FaixaCotacaoResponse(**result)
+
+
+@router.post("/calculos/consolidacao", response_model=ConsolidacaoResponse)
+async def post_consolidacao(req: ConsolidacaoRequest) -> ConsolidacaoResponse:
+    result = consolidar_engenheiro(
+        req.orcamento_id,
+        req.cliente_id,
+        {chave: valor.model_dump(exclude={"servico_id"}) for chave, valor in req.resultados_mo.items()},
+        {chave: valor.model_dump() for chave, valor in req.configs_mat.items()},
+        req.area_total,
+        req.bdi,
+    )
+    return ConsolidacaoResponse(**result)
