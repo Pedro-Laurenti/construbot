@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { loadStorage, saveStorage } from '@/lib/storage'
 import { PLANTAS_PADRAO, CONDICOES_FINANCIAMENTO, FASES_OBRA_PADRAO } from '@/lib/mockData'
 import { calcularFluxoCaixaINCC, calcularParcelaPrice, calcularAporteMinimo, calcularTabelaAportes, calcularMatEngenheiro } from '@/lib/calculos'
@@ -16,6 +16,9 @@ interface Props {
   engData?: OrcamentoEngenheiro
   onUpdateEng?: (patch: Partial<OrcamentoEngenheiro>) => void
   onEntregar?: () => void
+  actionToken?: number
+  actionType?: 'salvar' | 'entregar' | null
+  onWizardStateChange?: (state: { prontoParaEntrega: boolean; jaEntregue: boolean }) => void
 }
 
 function BarChart({ parcelas }: { parcelas: { mes: number; custoParcela: number; custoParcelaCorrigido: number }[] }) {
@@ -47,7 +50,7 @@ function BarChart({ parcelas }: { parcelas: { mes: number; custoParcela: number;
   )
 }
 
-export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcamentoId: orcamentoIdProp, engData: engDataProp, onUpdateEng, onEntregar }: Props) {
+export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcamentoId: orcamentoIdProp, engData: engDataProp, onUpdateEng, onEntregar, actionToken, actionType, onWizardStateChange }: Props) {
   const modoWizard = !!orcamentoIdProp && !!engDataProp
 
   const [selectedOrcId, setSelectedOrcId] = useState(orcamentoIdProp ?? '')
@@ -179,6 +182,17 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
   }
   const prontoParaEntrega = Object.values(checklistEntrega).every(Boolean)
 
+  useEffect(() => {
+    if (!modoWizard || !onWizardStateChange) return
+    onWizardStateChange({ prontoParaEntrega, jaEntregue })
+  }, [jaEntregue, modoWizard, onWizardStateChange, prontoParaEntrega])
+
+  useEffect(() => {
+    if (!modoWizard || !actionToken || !actionType) return
+    if (actionType === 'salvar') salvarFases()
+    if (actionType === 'entregar' && !jaEntregue && prontoParaEntrega) setConfirmModal(true)
+  }, [actionToken, actionType, jaEntregue, modoWizard, prontoParaEntrega])
+
   return (
     <div className="flex flex-col gap-6 max-w-5xl">
       <h2 className="text-xl font-bold flex items-center gap-1">E6 — Precificação Final <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h2>
@@ -262,7 +276,7 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                   Bloco 2 — Cronograma e Correção INCC
                   <span className="text-xs text-base-content/50 ml-2 font-normal">+{formatCurrency(custoDiretoComInccMEI - custoDiretoMEI)} INCC</span>
                 </span>
-                <button onClick={e => { e.preventDefault(); salvarFases() }} className="btn btn-ghost btn-xs gap-1 z-10" title="Salvar fases">
+                <button onClick={e => { e.preventDefault(); salvarFases() }} className={`btn btn-ghost btn-xs gap-1 z-10 ${modoWizard ? 'hidden' : ''}`} title="Salvar fases">
                   {rascunhoSalvo ? <MdCheckCircle size={14} className="text-success" /> : <MdInsertChart size={14} />}
                   Salvar fases
                 </button>
@@ -403,7 +417,7 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                 </div>
               </div>
 
-              <div className="flex gap-3 justify-end">
+              <div className={`flex gap-3 justify-end ${modoWizard ? 'hidden' : ''}`}>
                 <button onClick={salvarFases} className="btn btn-ghost btn-sm">Salvar rascunho</button>
                 <button
                   onClick={() => setConfirmModal(true)}

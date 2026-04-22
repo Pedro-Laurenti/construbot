@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { COMPOSICOES_PROFISSIONAIS, PONTOS_HIDRAULICOS } from '@/lib/mockData'
+import { appendAuditEvent, getModuleUiState, setModuleUiState } from '@/lib/engineerDashboard'
 import type { EngineerData, ComposicaoProfissional } from '@/types'
 import { MdAdd } from 'react-icons/md'
 
@@ -29,7 +30,8 @@ const CATEGORIA_LABEL: Record<string, string> = {
 
 export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
   const [composicoes, setComposicoes] = useState<ComposicaoProfissional[]>(COMPOSICOES_PROFISSIONAIS)
-  const [aba, setAba] = useState<'composicoes' | 'hidraulica'>('composicoes')
+  const ui = getModuleUiState(data, 'composicoes-profissionais')
+  const [aba, setAba] = useState<'composicoes' | 'hidraulica'>((ui.abaAtiva as 'composicoes' | 'hidraulica') ?? 'composicoes')
   const [showModal, setShowModal] = useState(false)
   const [novaComp, setNovaComp] = useState<Partial<ComposicaoProfissional>>({ categoria: 'ALVENARIA', profissional: '', servico: '', refSINAPI: '', unidade: 'M²', medicao: 'M²', producaoMensalSINAPI: 0, valorRefMetaDiaria: 0 })
 
@@ -61,6 +63,14 @@ export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
       valorRefMetaDiaria: novaComp.valorRefMetaDiaria ?? 0,
     }
     setComposicoes(prev => [...prev, newItem])
+    onUpdate({
+      auditTrail: appendAuditEvent(data, {
+        usuario: 'engenheiro_local',
+        modulo: 'composicoes-profissionais',
+        acao: 'adicao_composicao_profissional',
+        impacto: `comp:${newItem.id}`,
+      }),
+    })
     setShowModal(false)
     setNovaComp({ categoria: 'ALVENARIA', profissional: '', servico: '', refSINAPI: '', unidade: 'M²', medicao: 'M²', producaoMensalSINAPI: 0, valorRefMetaDiaria: 0 })
   }
@@ -79,8 +89,8 @@ export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
       </div>
 
       <div role="tablist" className="tabs tabs-boxed w-fit">
-        <button role="tab" onClick={() => setAba('composicoes')} className={`tab ${aba === 'composicoes' ? 'tab-active' : ''}`}>Composições ({composicoes.length})</button>
-        <button role="tab" onClick={() => setAba('hidraulica')} className={`tab ${aba === 'hidraulica' ? 'tab-active' : ''}`}>Hidráulica</button>
+        <button role="tab" onClick={() => { setAba('composicoes'); onUpdate({ moduleUIState: setModuleUiState(data, 'composicoes-profissionais', { abaAtiva: 'composicoes' }) }) }} className={`tab ${aba === 'composicoes' ? 'tab-active' : ''}`}>Composições ({composicoes.length})</button>
+        <button role="tab" onClick={() => { setAba('hidraulica'); onUpdate({ moduleUIState: setModuleUiState(data, 'composicoes-profissionais', { abaAtiva: 'hidraulica' }) }) }} className={`tab ${aba === 'hidraulica' ? 'tab-active' : ''}`}>Hidráulica</button>
       </div>
 
       {aba === 'composicoes' && (

@@ -579,6 +579,24 @@ export interface OrcamentoEngenheiro {
   uiState?: OrcamentoWizardUIState
 }
 
+export interface ModuleUIState {
+  abaAtiva?: string
+  filtros?: Record<string, string>
+  selecao?: string
+  ordenacao?: string
+  densidade?: 'padrao' | 'foco'
+  ultimoPonto?: string
+}
+
+export interface AuditEventEngenharia {
+  data: string
+  usuario: string
+  modulo: string
+  acao: string
+  motivo?: string
+  impacto?: string
+}
+
 export interface EngineerData {
   globalParams: GlobalParams
   gruposEncargos: GruposEncargos
@@ -592,4 +610,6 @@ export interface EngineerData {
   mesReferenciaSINAPI: string
   orcamentosEngenheiro: Record<string, OrcamentoEngenheiro>
   plantas: PlantaPadrao[]
+  moduleUIState: Record<string, ModuleUIState>
+  auditTrail: AuditEventEngenharia[]
 }

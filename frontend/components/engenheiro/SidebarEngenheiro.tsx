@@ -2,35 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdHomeWork, MdPriceChange, MdSummarize } from 'react-icons/md'
-
-export type EngineerModule = 'painel' | 'parametros' | 'consulta' | 'calculadora-mo' | 'calculadora-mat' | 'sinapi' | 'composicoes-analiticas' | 'composicoes-profissionais' | 'orcamentos' | 'gestao-plantas' | 'precificador' | 'consolidacao'
+import { getModuleValidation, type EngineerModuleId } from '@/lib/engineerDashboard'
+import type { EngineerData, Orcamento } from '@/types'
 
 interface NavSection {
   title: string
-  items: { id: EngineerModule; label: string; sub: string; icon: React.ReactNode }[]
+  items: { id: EngineerModuleId; label: string; sub: string; icon: React.ReactNode }[]
 }
 
 const NAV_SECTIONS: NavSection[] = [
-  {
-    title: 'TRABALHAR EM ORÇAMENTO',
-    items: [
-      { id: 'orcamentos', label: 'Orçamentos Clientes', sub: 'Iniciar, continuar, entregar', icon: <MdFolderOpen size={20} /> },
-    ],
-  },
-  {
-    title: 'FERRAMENTAS DE CONSULTA',
-    items: [
-      { id: 'sinapi', label: 'SINAPI — Insumos (ISE)', sub: 'Tabela de preços por UF', icon: <MdTableChart size={20} /> },
-      { id: 'composicoes-analiticas', label: 'Composições Analíticas', sub: 'Hierarquia 3 níveis', icon: <MdAccountTree size={20} /> },
-      { id: 'composicoes-profissionais', label: 'Composições Profissionais', sub: 'Produtividade', icon: <MdPeople size={20} /> },
-      { id: 'gestao-plantas', label: 'Plantas Arquitetônicas', sub: 'Gerenciar plantas', icon: <MdHomeWork size={20} /> },
-      { id: 'consulta', label: 'Consulta de Composição', sub: 'SINAPI com custo avulso', icon: <MdSearch size={20} /> },
-      { id: 'calculadora-mo', label: 'Calculadora MO', sub: 'Cálculo avulso', icon: <MdCalculate size={20} /> },
-      { id: 'calculadora-mat', label: 'Calculadora Materiais', sub: 'Cálculo avulso', icon: <MdEngineering size={20} /> },
-      { id: 'precificador', label: 'Precificador', sub: 'Configurar serviços', icon: <MdPriceChange size={20} /> },
-      { id: 'consolidacao', label: 'Consolidação', sub: 'Totais + BDI + exportar', icon: <MdSummarize size={20} /> },
-    ],
-  },
   {
     title: 'GESTÃO',
     items: [
@@ -38,15 +18,42 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'parametros', label: 'Parâmetros Globais', sub: 'BDI, encargos e INCC', icon: <MdSettings size={20} /> },
     ],
   },
+  {
+    title: 'ORÇAMENTOS',
+    items: [
+      { id: 'orcamentos', label: 'Orçamentos Clientes', sub: 'Iniciar, continuar, entregar', icon: <MdFolderOpen size={20} /> },
+    ],
+  },
+  {
+    title: 'CÁLCULO E PRECIFICAÇÃO',
+    items: [
+      { id: 'precificador', label: 'Precificador', sub: 'Catálogo técnico de serviços', icon: <MdPriceChange size={20} /> },
+      { id: 'calculadora-mo', label: 'Calculadora MO', sub: 'Custo de mão de obra', icon: <MdCalculate size={20} /> },
+      { id: 'calculadora-mat', label: 'Calculadora Materiais', sub: 'Custo de materiais', icon: <MdEngineering size={20} /> },
+      { id: 'consolidacao', label: 'Consolidação', sub: 'Totais + BDI + exportar', icon: <MdSummarize size={20} /> },
+      { id: 'consulta', label: 'Consulta de Composição', sub: 'SINAPI com custo avulso', icon: <MdSearch size={20} /> },
+    ],
+  },
+  {
+    title: 'REFERÊNCIAS TÉCNICAS',
+    items: [
+      { id: 'sinapi', label: 'SINAPI — Insumos (ISE)', sub: 'Tabela de preços por UF', icon: <MdTableChart size={20} /> },
+      { id: 'composicoes-analiticas', label: 'Composições Analíticas', sub: 'Hierarquia 3 níveis', icon: <MdAccountTree size={20} /> },
+      { id: 'composicoes-profissionais', label: 'Composições Profissionais', sub: 'Produtividade', icon: <MdPeople size={20} /> },
+      { id: 'gestao-plantas', label: 'Plantas Arquitetônicas', sub: 'Gerenciar plantas', icon: <MdHomeWork size={20} /> },
+    ],
+  },
 ]
 
 interface SidebarEngenheiroProps {
-  activeModule: EngineerModule
-  onNavigate: (m: EngineerModule) => void
+  activeModule: EngineerModuleId
+  onNavigate: (m: EngineerModuleId) => void
   onLogout: () => void
+  data: EngineerData
+  orcamentos: Orcamento[]
 }
 
-export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout }: SidebarEngenheiroProps) {
+export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout, data, orcamentos }: SidebarEngenheiroProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -94,21 +101,28 @@ export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout }
         {NAV_SECTIONS.map(section => (
           <div key={section.title}>
             <p className="text-xs font-bold text-base-content/30 uppercase tracking-wider px-4 pt-4 pb-1">{section.title}</p>
-            {section.items.map(item => (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`flex items-center gap-3 px-3 py-2.5 w-full text-left transition-colors ${activeModule === item.id ? 'bg-secondary text-secondary-content' : 'hover:bg-base-200'}`}
-              >
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeModule === item.id ? 'bg-secondary-content/20' : 'bg-base-300'}`}>
-                  {item.icon}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{item.label}</p>
-                  <p className="text-xs opacity-50 truncate">{item.sub}</p>
-                </div>
-              </button>
-            ))}
+            {section.items.map(item => {
+              const validacao = getModuleValidation(item.id, data, orcamentos)
+              const pendencias = validacao.pendencias.length
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={`flex items-center gap-3 px-3 py-2.5 w-full text-left transition-colors ${activeModule === item.id ? 'bg-secondary text-secondary-content' : 'hover:bg-base-200'}`}
+                >
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${activeModule === item.id ? 'bg-secondary-content/20' : 'bg-base-300'}`}>
+                    {item.icon}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{item.label}</p>
+                      {pendencias > 0 && <span className="badge badge-warning badge-xs">{pendencias}</span>}
+                    </div>
+                    <p className="text-xs opacity-50 truncate">{item.sub}</p>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         ))}
       </nav>

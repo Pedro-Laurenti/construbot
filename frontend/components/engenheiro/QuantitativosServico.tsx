@@ -1,18 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { loadStorage, saveStorage } from '@/lib/storage'
 import { PLANTAS_PADRAO, SERVICE_LABELS, SERVICE_SPECS, SERVICE_SPEC_LABELS, SERVICE_HELP, resolverSINAPI } from '@/lib/mockData'
 import { gerarQuantitativosFromParametros } from '@/lib/calculos'
-import { MdAdd, MdCheck, MdDelete, MdInfo } from 'react-icons/md'
-import type { EngineerData, Orcamento, QuantitativoServico, ContratoModalidade, OrcamentoEngenheiro, ServiceType } from '@/types'
+import { MdAdd, MdDelete, MdInfo } from 'react-icons/md'
+import type { EngineerData, Orcamento, QuantitativoServico, ContratoModalidade, ServiceType } from '@/types'
 
 interface Props {
   data: EngineerData
   onUpdate: (p: Partial<EngineerData>) => void
   orcamentos: Orcamento[]
   orcamentoId?: string
-  onConcluir?: (quantitativos: QuantitativoServico[]) => void
+  onChangeQuantitativos?: (quantitativos: QuantitativoServico[]) => void
 }
 
 const GRUPOS_SECAO: { label: string; tipos: ServiceType[] }[] = [
@@ -35,7 +34,7 @@ const ORIGEM_LABEL: Record<string, string> = {
   PERSONALIZACAO: 'Personalização',
 }
 
-export default function QuantitativosServico({ data, onUpdate, orcamentos, orcamentoId, onConcluir }: Props) {
+export default function QuantitativosServico({ data, onUpdate, orcamentos, orcamentoId, onChangeQuantitativos }: Props) {
   const orc = orcamentos.find(o => o.id === orcamentoId) ?? null
   const engExistente = orcamentoId ? data.orcamentosEngenheiro[orcamentoId] : null
 
@@ -56,6 +55,24 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
       if (planta) setQtRows(gerarQuantitativosFromParametros(planta, orc.parametros!.opcionais))
     }
   }, [orcamentoId])
+
+  useEffect(() => {
+    onChangeQuantitativos?.(qtRows)
+  }, [qtRows, onChangeQuantitativos])
+
+  useEffect(() => {
+    if (!orcamentoId || !engExistente) return
+    if (engExistente.quantitativos === qtRows) return
+    onUpdate({
+      orcamentosEngenheiro: {
+        ...data.orcamentosEngenheiro,
+        [orcamentoId]: {
+          ...engExistente,
+          quantitativos: qtRows,
+        },
+      },
+    })
+  }, [data.orcamentosEngenheiro, engExistente, onUpdate, orcamentoId, qtRows])
 
   function updateRow(idx: number, patch: Partial<QuantitativoServico>) {
     setQtRows(prev => prev.map((r, i) => i === idx ? { ...r, ...patch } : r))
@@ -106,32 +123,6 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
     setQtRows(prev => prev.filter((_, i) => i !== idx))
   }
 
-  function confirmar() {
-    if (!orcamentoId) return
-    if (onConcluir) {
-      onConcluir(qtRows)
-      return
-    }
-    const atual: OrcamentoEngenheiro = data.orcamentosEngenheiro[orcamentoId] ?? {
-      orcamentoClienteId: orcamentoId,
-      etapaAtual: 'E2',
-      etapasConcluidas: [],
-      quantitativos: [],
-      consultasSINAPI: {},
-      calculosMO: {},
-      calculosMat: {},
-    }
-    const eng = { ...data.orcamentosEngenheiro, [orcamentoId]: { ...atual, quantitativos: qtRows } }
-    onUpdate({ orcamentosEngenheiro: eng })
-    if (orc?.status === 'aguardando_engenheiro') {
-      const session = loadStorage()
-      const orcs = session.orcamentos.map(o =>
-        o.id === orcamentoId ? { ...o, status: 'em_calculo' as const } : o
-      )
-      saveStorage({ ...session, orcamentos: orcs })
-    }
-  }
-
   const planta = orc?.parametros ? PLANTAS_PADRAO.find(p => p.id === orc.parametros!.plantaId) : null
   const pendentes = qtRows.filter(q => !q.composicaoBasica)
   const confirmados = qtRows.length - pendentes.length
@@ -146,7 +137,6 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
             <span className="text-xs text-warning font-medium">{pendentes.length} serviço(s) sem composição</span>
           )}
           <button onClick={addServico} className="btn btn-ghost btn-sm gap-1"><MdAdd size={16} /> Serviço manual</button>
-          <button onClick={confirmar} className="btn btn-primary btn-sm gap-1" disabled={pendentes.length > 0 || qtRows.length === 0}><MdCheck size={16} /> Salvar e avançar</button>
         </div>
       </div>
 

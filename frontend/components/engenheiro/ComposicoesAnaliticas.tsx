@@ -2,15 +2,27 @@
 
 import { useState } from 'react'
 import { COMPOSICOES_ANALITICAS } from '@/lib/mockData'
-import type { ComposicaoAnalitica } from '@/types'
+import { getModuleUiState, setModuleUiState } from '@/lib/engineerDashboard'
+import type { EngineerData } from '@/types'
 import { MdExpandMore, MdExpandLess } from 'react-icons/md'
 
-export default function ComposicoesAnaliticas() {
-  const [busca, setBusca] = useState('')
-  const [filtroGrupo, setFiltroGrupo] = useState('')
+interface Props {
+  data?: EngineerData
+  onUpdate?: (p: Partial<EngineerData>) => void
+}
+
+export default function ComposicoesAnaliticas({ data, onUpdate }: Props) {
+  const ui = data ? getModuleUiState(data, 'composicoes-analiticas') : {}
+  const [busca, setBusca] = useState(ui.filtros?.busca ?? '')
+  const [filtroGrupo, setFiltroGrupo] = useState(ui.filtros?.filtroGrupo ?? '')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const grupos = [...new Set(COMPOSICOES_ANALITICAS.map(c => c.grupo))]
+
+  function persist(nextBusca: string, nextGrupo: string) {
+    if (!data || !onUpdate) return
+    onUpdate({ moduleUIState: setModuleUiState(data, 'composicoes-analiticas', { filtros: { busca: nextBusca, filtroGrupo: nextGrupo } }) })
+  }
 
   const filtrados = COMPOSICOES_ANALITICAS.filter(c => {
     const matchBusca = !busca || c.codigoComposicao.includes(busca) || c.descricao.toLowerCase().includes(busca.toLowerCase())
@@ -36,11 +48,11 @@ export default function ComposicoesAnaliticas() {
       <div className="flex flex-wrap gap-3">
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-xs">Pesquisar</legend>
-          <input type="text" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Código ou descrição..." className="input input-sm w-64" />
+          <input type="text" value={busca} onChange={e => { const v = e.target.value; setBusca(v); persist(v, filtroGrupo) }} placeholder="Código ou descrição..." className="input input-sm w-64" />
         </fieldset>
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-xs">Grupo</legend>
-          <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)} className="select select-sm">
+          <select value={filtroGrupo} onChange={e => { const v = e.target.value; setFiltroGrupo(v); persist(busca, v) }} className="select select-sm">
             <option value="">Todos</option>
             {grupos.map(g => <option key={g} value={g}>{g}</option>)}
           </select>

@@ -2,15 +2,27 @@
 
 import { useState } from 'react'
 import { INSUMOS_SINAPI, UF_LIST } from '@/lib/mockData'
-import type { InsumoSINAPI } from '@/types'
+import { getModuleUiState, setModuleUiState } from '@/lib/engineerDashboard'
+import type { InsumoSINAPI, EngineerData } from '@/types'
 
-interface Props { uf: string; onUfChange: (uf: string) => void }
+interface Props {
+  uf: string
+  onUfChange: (uf: string) => void
+  data?: EngineerData
+  onUpdate?: (p: Partial<EngineerData>) => void
+}
 
 const CLASSIFICACOES = ['MATERIAL', 'SERVICOS', 'EQUIPAMENTO'] as const
 
-export default function TabelaSINAPI({ uf, onUfChange }: Props) {
-  const [busca, setBusca] = useState('')
-  const [filtroClass, setFiltroClass] = useState('')
+export default function TabelaSINAPI({ uf, onUfChange, data, onUpdate }: Props) {
+  const ui = data ? getModuleUiState(data, 'sinapi') : {}
+  const [busca, setBusca] = useState(ui.filtros?.busca ?? '')
+  const [filtroClass, setFiltroClass] = useState(ui.filtros?.filtroClass ?? '')
+
+  function persist(nextBusca: string, nextClass: string) {
+    if (!data || !onUpdate) return
+    onUpdate({ moduleUIState: setModuleUiState(data, 'sinapi', { filtros: { busca: nextBusca, filtroClass: nextClass } }) })
+  }
 
   function getPreco(insumo: InsumoSINAPI): { valor: number | null; fallback: boolean } {
     const v = insumo.precos[uf]
@@ -35,11 +47,11 @@ export default function TabelaSINAPI({ uf, onUfChange }: Props) {
       <div className="flex flex-wrap gap-3">
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-xs">Pesquisar</legend>
-          <input type="text" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Código ou descrição..." className="input input-sm w-64" />
+          <input type="text" value={busca} onChange={e => { const v = e.target.value; setBusca(v); persist(v, filtroClass) }} placeholder="Código ou descrição..." className="input input-sm w-64" />
         </fieldset>
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-xs">Classificação</legend>
-          <select value={filtroClass} onChange={e => setFiltroClass(e.target.value)} className="select select-sm">
+          <select value={filtroClass} onChange={e => { const v = e.target.value; setFiltroClass(v); persist(busca, v) }} className="select select-sm">
             <option value="">Todas</option>
             {CLASSIFICACOES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>

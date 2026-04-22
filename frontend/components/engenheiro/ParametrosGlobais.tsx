@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { MdInfo } from 'react-icons/md'
 import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS, UF_LIST } from '@/lib/mockData'
+import { appendAuditEvent } from '@/lib/engineerDashboard'
 import type { EngineerData, GlobalParams, GruposEncargos, ItemGrupoEncargo } from '@/types'
 import { formatCurrency } from '@/lib/formatters'
 
@@ -38,12 +39,32 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
     onUpdate({ gruposEncargos: updated, globalParams: updatedParams })
   }
 
-  function saveParams() { onUpdate({ globalParams: params, gruposEncargos: grupos }) }
+  function saveParams() {
+    onUpdate({
+      globalParams: params,
+      gruposEncargos: grupos,
+      auditTrail: appendAuditEvent(data, {
+        usuario: 'engenheiro_local',
+        modulo: 'parametros-globais',
+        acao: 'salvar_parametros',
+        impacto: `bdi:${params.bdi}`,
+      }),
+    })
+  }
 
   function restore() {
     setParams(GLOBAL_PARAMS)
     setGrupos(DEFAULT_GRUPOS_ENCARGOS)
-    onUpdate({ globalParams: GLOBAL_PARAMS, gruposEncargos: DEFAULT_GRUPOS_ENCARGOS })
+    onUpdate({
+      globalParams: GLOBAL_PARAMS,
+      gruposEncargos: DEFAULT_GRUPOS_ENCARGOS,
+      auditTrail: appendAuditEvent(data, {
+        usuario: 'engenheiro_local',
+        modulo: 'parametros-globais',
+        acao: 'restaurar_padrao',
+        impacto: 'parametros_globais',
+      }),
+    })
   }
 
   function GrupoTable({ label, items, grupoKey, readonly, nota }: { label: string; items: ItemGrupoEncargo[] | { label: string; valor: number }[]; grupoKey?: keyof GruposEncargos; readonly?: boolean; nota?: string }) {

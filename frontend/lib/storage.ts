@@ -91,6 +91,8 @@ function defaultEngineerData(): EngineerData {
     mesReferenciaSINAPI: 'Janeiro/2026',
     orcamentosEngenheiro: {},
     plantas: PLANTAS_PADRAO,
+    moduleUIState: {},
+    auditTrail: [],
   }
 }
 
@@ -174,6 +176,8 @@ function migrateEngineerData(raw: any): EngineerData {
   return {
     ...merged,
     orcamentosEngenheiro: normalizedByBudget,
+    moduleUIState: merged.moduleUIState ?? {},
+    auditTrail: Array.isArray(merged.auditTrail) ? merged.auditTrail : [],
   }
 }
 

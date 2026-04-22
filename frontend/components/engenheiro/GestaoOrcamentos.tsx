@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { saveStorage, loadStorage } from '@/lib/storage'
+import { appendAuditEvent, getModuleUiState, getStatusBadge, setModuleUiState } from '@/lib/engineerDashboard'
 import { formatDate } from '@/lib/formatters'
 import { PLANTAS_PADRAO } from '@/lib/mockData'
+import { seedOrcamentoMock } from '@/lib/seedMock'
 import type { EngineerData, Orcamento, OrcamentoReviewStatus, OrcamentoStatus } from '@/types'
 import { MdCheckCircle, MdCancel, MdPlayArrow, MdArrowForward, MdLockOpen } from 'react-icons/md'
 
@@ -16,10 +18,19 @@ interface Props {
 
 export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWizard }: Props) {
   const { orcamentoReviews } = data
+  const ui = getModuleUiState(data, 'orcamentos')
   const [selected, setSelected] = useState<Orcamento | null>(null)
   const [reabrirSelecionado, setReabrirSelecionado] = useState<Orcamento | null>(null)
   const [motivoReabertura, setMotivoReabertura] = useState('')
   const [obs, setObs] = useState('')
+  const [fStatus, setFStatus] = useState(ui.filtros?.status ?? '')
+  const [fEtapa, setFEtapa] = useState(ui.filtros?.etapa ?? '')
+  const [fUf, setFUf] = useState(ui.filtros?.uf ?? '')
+  const [fRisco, setFRisco] = useState(ui.filtros?.risco ?? '')
+
+  function persistFiltros(status: string, etapa: string, uf: string, risco: string) {
+    onUpdate({ moduleUIState: setModuleUiState(data, 'orcamentos', { filtros: { status, etapa, uf, risco } }) })
+  }
 
   function getReview(id: string): OrcamentoReviewStatus {
     return orcamentoReviews[id] ?? { status: 'pendente', observacoes: '' }
@@ -27,7 +38,16 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
 
   function updateReview(orcId: string, status: OrcamentoReviewStatus['status']) {
     const updated = { ...orcamentoReviews, [orcId]: { status, observacoes: obs } }
-    onUpdate({ orcamentoReviews: updated })
+    onUpdate({
+      orcamentoReviews: updated,
+      auditTrail: appendAuditEvent(data, {
+        usuario: 'engenheiro_local',
+        modulo: 'gestao-orcamentos',
+        acao: `revisao_${status}`,
+        motivo: obs || undefined,
+        impacto: `orcamento:${orcId}`,
+      }),
+    })
     if (selected?.id === orcId) setSelected(null)
   }
 
@@ -52,6 +72,13 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
             ],
           },
         },
+        auditTrail: appendAuditEvent(data, {
+          usuario: 'engenheiro_local',
+          modulo: 'gestao-orcamentos',
+          acao: 'reabertura_orcamento',
+          motivo: motivoReabertura.trim(),
+          impacto: `orcamento:${orc.id}`,
+        }),
       })
     }
     setMotivoReabertura('')
@@ -59,20 +86,61 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
     onEnterWizard({ ...orc, status: 'em_calculo' })
   }
 
-  const ORC_STATUS_BADGE: Record<OrcamentoStatus, { className: string; label: string }> = {
-    aguardando_engenheiro: { className: 'badge-warning', label: 'Aguardando' },
-    em_calculo: { className: 'badge-info', label: 'Em cálculo' },
-    entregue: { className: 'badge-success', label: 'Entregue' },
-    calculado: { className: 'badge-ghost', label: 'Fora do fluxo' },
-    rascunho: { className: 'badge-ghost', label: 'Fora do fluxo' },
-    enviado: { className: 'badge-ghost', label: 'Fora do fluxo' },
-  }
+  const filtrados = useMemo(() => {
+    return orcamentos.filter(orc => {
+      const engOrc = data.orcamentosEngenheiro[orc.id]
+      const etapa = engOrc?.etapaAtual ?? '-'
+      const risco = engOrc?.statusValidacaoEtapa ? Object.values(engOrc.statusValidacaoEtapa).some(v => v?.status === 'erro') ? 'alto' : Object.values(engOrc.statusValidacaoEtapa).some(v => v?.status === 'aviso') ? 'medio' : 'baixo' : 'baixo'
+      const okStatus = !fStatus || orc.status === fStatus
+      const okEtapa = !fEtapa || etapa === fEtapa
+      const okUf = !fUf || orc.uf === fUf
+      const okRisco = !fRisco || risco === fRisco
+      return okStatus && okEtapa && okUf && okRisco
+    })
+  }, [orcamentos, data.orcamentosEngenheiro, fStatus, fEtapa, fUf, fRisco])
 
   return (
     <div className="flex flex-col gap-4 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-bold">Orçamentos</h1>
-        <p className="text-base-content/50 text-sm">{orcamentos.length} orçamento(s) de clientes</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Orçamentos</h1>
+          <p className="text-base-content/50 text-sm">{orcamentos.length} orçamento(s) de clientes</p>
+        </div>
+        <button onClick={() => { seedOrcamentoMock(); window.location.reload() }} className="btn btn-outline btn-sm">Mockar orçamento</button>
+      </div>
+
+      <div className="card bg-base-100 shadow">
+        <div className="card-body p-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend text-xs">Status</legend>
+            <select value={fStatus} onChange={e => { const v = e.target.value; setFStatus(v); persistFiltros(v, fEtapa, fUf, fRisco) }} className="select select-sm">
+              <option value="">Todos</option>
+              <option value="aguardando_engenheiro">Aguardando</option>
+              <option value="em_calculo">Em cálculo</option>
+              <option value="entregue">Entregue</option>
+            </select>
+          </fieldset>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend text-xs">Etapa</legend>
+            <select value={fEtapa} onChange={e => { const v = e.target.value; setFEtapa(v); persistFiltros(fStatus, v, fUf, fRisco) }} className="select select-sm">
+              <option value="">Todas</option>
+              <option value="E2">E2</option><option value="E3">E3</option><option value="E4">E4</option><option value="E5">E5</option><option value="E6">E6</option><option value="ENTREGUE">Entregue</option>
+            </select>
+          </fieldset>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend text-xs">UF</legend>
+            <input value={fUf} onChange={e => { const v = e.target.value.toUpperCase(); setFUf(v); persistFiltros(fStatus, fEtapa, v, fRisco) }} className="input input-sm" placeholder="SP" />
+          </fieldset>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend text-xs">Risco</legend>
+            <select value={fRisco} onChange={e => { const v = e.target.value; setFRisco(v); persistFiltros(fStatus, fEtapa, fUf, v) }} className="select select-sm">
+              <option value="">Todos</option>
+              <option value="alto">Alto</option>
+              <option value="medio">Médio</option>
+              <option value="baixo">Baixo</option>
+            </select>
+          </fieldset>
+        </div>
       </div>
 
       <div className="card bg-base-100 shadow overflow-x-auto">
@@ -81,12 +149,12 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
             <tr><th>ID</th><th>Data</th><th>UF</th><th>Planta</th><th>Status</th><th>Etapa</th><th>Ações</th></tr>
           </thead>
           <tbody>
-            {orcamentos.length === 0 && (
-              <tr><td colSpan={7} className="text-center text-base-content/40 py-8">Nenhum orçamento encontrado.</td></tr>
+            {filtrados.length === 0 && (
+              <tr><td colSpan={7} className="text-center text-base-content/40 py-8">Nenhum orçamento encontrado para os filtros aplicados.</td></tr>
             )}
-            {orcamentos.map(orc => {
-              const badge = ORC_STATUS_BADGE[orc.status]
+            {filtrados.map(orc => {
               const engOrc = data.orcamentosEngenheiro[orc.id]
+              const badge = getStatusBadge(orc.status, engOrc?.etapaAtual)
               const etapa: string = engOrc?.etapaAtual ?? '-'
               const planta = PLANTAS_PADRAO.find(p => p.id === orc.parametros?.plantaId)
               return (
@@ -104,26 +172,16 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
                   <td>
                     <div className="flex gap-1 items-center flex-wrap">
                       {(orc.status === 'aguardando_engenheiro' || orc.status === 'em_calculo') && (
-                        <button
-                          onClick={() => onEnterWizard(orc)}
-                          className="btn btn-primary btn-xs gap-1"
-                        >
+                        <button onClick={() => onEnterWizard(orc)} className="btn btn-primary btn-xs gap-1">
                           {orc.status === 'aguardando_engenheiro' ? <><MdPlayArrow size={14} /> Iniciar</> : <><MdArrowForward size={14} /> Continuar</>}
                         </button>
                       )}
                       {orc.status === 'entregue' && (
-                        <button
-                          onClick={() => setReabrirSelecionado(orc)}
-                          className="btn btn-ghost btn-xs text-warning gap-1"
-                        >
+                        <button onClick={() => setReabrirSelecionado(orc)} className="btn btn-ghost btn-xs text-warning gap-1">
                           <MdLockOpen size={14} /> Reabrir
                         </button>
                       )}
-                      <button
-                        onClick={() => { setSelected(orc); setObs(getReview(orc.id).observacoes) }}
-                        className="btn btn-ghost btn-xs text-success gap-1"
-                        title="Aprovar / Rejeitar"
-                      >
+                      <button onClick={() => { setSelected(orc); setObs(getReview(orc.id).observacoes) }} className="btn btn-ghost btn-xs text-success gap-1">
                         <MdCheckCircle size={14} /> Revisar
                       </button>
                     </div>
@@ -176,3 +234,4 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
     </div>
   )
 }
+

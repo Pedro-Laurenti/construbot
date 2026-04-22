@@ -1,5 +1,6 @@
 'use client'
 
+import { MODULE_META, getModuleValidation, type EngineerModuleId } from '@/lib/engineerDashboard'
 import { formatCurrency, formatDate } from '@/lib/formatters'
 import type { EngineerData, Orcamento } from '@/types'
 

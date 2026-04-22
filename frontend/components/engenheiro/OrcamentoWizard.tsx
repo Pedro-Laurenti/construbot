@@ -168,6 +168,10 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
   const parametrosOk = isParametrosCompletos(data)
   const [etapaVisivel, setEtapaVisivel] = useState<EtapaWizard>(engData?.uiState?.etapaVisivel ?? (etapaAtual === 'ENTREGUE' ? 'E6' : etapaAtual))
   const [impactoModal, setImpactoModal] = useState<{ etapa: EtapaWizard; dependentes: EtapaWizard[]; checksumAtual: string } | null>(null)
+  const [draftQuantitativos, setDraftQuantitativos] = useState<QuantitativoServico[]>(engData?.quantitativos ?? [])
+  const [e6ActionToken, setE6ActionToken] = useState(0)
+  const [e6ActionType, setE6ActionType] = useState<'salvar' | 'entregar' | null>(null)
+  const [e6WizardState, setE6WizardState] = useState({ prontoParaEntrega: false, jaEntregue: false })
 
   const planta = orcamento.parametros ? PLANTAS_PADRAO.find(p => p.id === orcamento.parametros.plantaId) : null
   const badge = getStatusBadge(orcamento.status, engData?.etapaAtual ?? '-')
@@ -358,6 +362,10 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
     if (engData?.uiState?.etapaVisivel) setEtapaVisivel(engData.uiState.etapaVisivel)
   }, [engData?.uiState?.etapaVisivel])
 
+  useEffect(() => {
+    setDraftQuantitativos(engData?.quantitativos ?? [])
+  }, [orcamento.id, engData?.quantitativos])
+
   const eng = engData ?? {
     orcamentoClienteId: orcamento.id,
     etapaAtual: 'E2' as const,
@@ -379,8 +387,9 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
     </p>
   ) : null
 
-  const validacaoAtual = validarEtapa(etapaVisivel, eng)
-  const decisoesEtapa = getDecisoesEtapa(etapaVisivel, eng)
+  const engVisivel = etapaVisivel === 'E2' ? { ...eng, quantitativos: draftQuantitativos } : eng
+  const validacaoAtual = validarEtapa(etapaVisivel, engVisivel)
+  const decisoesEtapa = getDecisoesEtapa(etapaVisivel, engVisivel)
   const riscosEtapa = getRiscosEtapa(etapaVisivel, validacaoAtual)
   const progresso = Math.round((etapasConcluidas.filter(e => ETAPA_ORDEM.includes(e as EtapaWizard)).length / ETAPA_ORDEM.length) * 100)
   const idxAtual = ETAPA_ORDEM.indexOf(etapaVisivel)
@@ -398,7 +407,13 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
               </div>
             </details>
           )}
-          <QuantitativosServico data={data} onUpdate={onUpdate} orcamentos={[orcamento]} orcamentoId={orcamento.id} onConcluir={concluirE2} />
+          <QuantitativosServico
+            data={data}
+            onUpdate={onUpdate}
+            orcamentos={[orcamento]}
+            orcamentoId={orcamento.id}
+            onChangeQuantitativos={setDraftQuantitativos}
+          />
         </>
       )
     }
@@ -406,7 +421,23 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
     if (etapaVisivel === 'E3') return <>{resumoCompacto}<ConsultaComposicao uf={orcamento.uf || data.uf} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
     if (etapaVisivel === 'E4') return <>{resumoCompacto}<CalculadoraMO data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
     if (etapaVisivel === 'E5') return <>{resumoCompacto}<CalculadoraMateriais data={data} onUpdate={onUpdate} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} /></>
-    return <>{resumoCompacto}<PrecificacaoFinal data={data} onUpdate={onUpdate} orcamentos={[orcamento]} orcamentoId={orcamento.id} engData={eng} onUpdateEng={atualizarEng} onEntregar={() => {}} /></>
+    return (
+      <>
+        {resumoCompacto}
+        <PrecificacaoFinal
+          data={data}
+          onUpdate={onUpdate}
+          orcamentos={[orcamento]}
+          orcamentoId={orcamento.id}
+          engData={eng}
+          onUpdateEng={atualizarEng}
+          onEntregar={() => {}}
+          actionToken={e6ActionToken}
+          actionType={e6ActionType}
+          onWizardStateChange={setE6WizardState}
+        />
+      </>
+    )
   }
 
   return (
@@ -472,32 +503,48 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
         </div>
       </div>
 
-      {etapaVisivel !== 'E6' && etapaVisivel !== 'E2' && (
-        <div className="bg-base-100 border-t border-base-300 px-6 py-3 flex-shrink-0 flex items-center justify-between">
-          <button
-            onClick={() => podeVoltar && navegarParaEtapa(ETAPA_ORDEM[idxAtual - 1])}
-            disabled={!podeVoltar}
-            className="btn btn-ghost btn-sm gap-1"
-          >
-            <MdArrowBack size={16} /> Etapa anterior
-          </button>
+      <div className="bg-base-100 border-t border-base-300 px-6 py-3 flex-shrink-0 flex items-center justify-between">
+        <button
+          onClick={() => podeVoltar && navegarParaEtapa(ETAPA_ORDEM[idxAtual - 1])}
+          disabled={!podeVoltar}
+          className="btn btn-ghost btn-sm gap-1"
+        >
+          <MdArrowBack size={16} /> Etapa anterior
+        </button>
 
-          {validacaoAtual.erros.length > 0 && (
-            <div className="flex items-center gap-2 text-warning text-xs">
-              <MdWarning size={14} />
-              <span>{validacaoAtual.erros[0]}</span>
-            </div>
-          )}
+        {etapaVisivel !== 'E6' && validacaoAtual.erros.length > 0 && (
+          <div className="flex items-center gap-2 text-warning text-xs">
+            <MdWarning size={14} />
+            <span>{validacaoAtual.erros[0]}</span>
+          </div>
+        )}
 
+        {etapaVisivel === 'E6' ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setE6ActionType('salvar'); setE6ActionToken(prev => prev + 1) }}
+              className="btn btn-ghost btn-sm"
+            >
+              Salvar rascunho
+            </button>
+            <button
+              onClick={() => { setE6ActionType('entregar'); setE6ActionToken(prev => prev + 1) }}
+              disabled={e6WizardState.jaEntregue || !e6WizardState.prontoParaEntrega}
+              className="btn btn-primary btn-sm gap-1"
+            >
+              Entregar ao cliente <MdArrowForward size={16} />
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={() => prepararConclusao(etapaVisivel)}
+            onClick={() => etapaVisivel === 'E2' ? concluirE2(draftQuantitativos) : prepararConclusao(etapaVisivel)}
             disabled={validacaoAtual.status === 'erro'}
             className="btn btn-primary btn-sm gap-1"
           >
             Validar e avançar <MdArrowForward size={16} />
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {impactoModal && (
         <div className="modal modal-open">
