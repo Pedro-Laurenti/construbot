@@ -48,6 +48,7 @@ export default function ComposicoesAnaliticas() {
       </div>
 
       <div className="flex flex-col gap-2">
+        <p className="text-xs text-base-content/50">{filtrados.length} resultado(s) encontrado(s)</p>
         {filtrados.map(comp => (
           <div key={comp.codigoComposicao} className="card bg-base-100 shadow">
             <button onClick={() => toggle(comp.codigoComposicao)} className="w-full text-left">
@@ -76,12 +77,12 @@ export default function ComposicoesAnaliticas() {
                       return (
                         <tr key={idx} className={nivel === 1 ? 'bg-base-200/40' : nivel === 2 ? 'bg-base-300/20' : ''}>
                           <td className="text-xs text-base-content/50">Nível {nivel}</td>
-                          <td><span className={`badge badge-xs ${item.tipoItem === 'INSUMO' ? 'badge-info' : 'badge-accent'}`}>{item.tipoItem}</span></td>
+                          <td><span className={`badge badge-xs ${item.tipoItem === 'INSUMO' ? 'badge-info' : 'badge-accent'}`}>{item.tipoItem === 'COMPOSICAO' ? 'COMPOSIÇÃO' : item.tipoItem}</span></td>
                           <td className={`font-mono text-xs ${nivel === 2 ? 'pl-4' : ''}`}>{item.codigo}</td>
                           <td className={`text-xs ${nivel === 2 ? 'pl-4' : ''}`}>{item.descricao}</td>
                           <td className="text-xs">{item.unidade}</td>
                           <td className="text-right font-mono text-xs">{item.coeficiente}</td>
-                          <td><span className="badge badge-xs badge-ghost">{item.situacao}</span></td>
+                          <td><span className="badge badge-xs badge-ghost">{item.situacao === 'COM PRECO' ? 'COM PREÇO' : item.situacao === 'COM CUSTO' ? 'COM CUSTO' : item.situacao}</span></td>
                         </tr>
                       )
                     })}

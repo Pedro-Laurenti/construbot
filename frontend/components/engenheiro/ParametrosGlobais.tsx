@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { MdInfo } from 'react-icons/md'
 import { GLOBAL_PARAMS, DEFAULT_GRUPOS_ENCARGOS, UF_LIST } from '@/lib/mockData'
 import type { EngineerData, GlobalParams, GruposEncargos, ItemGrupoEncargo } from '@/types'
 import { formatCurrency } from '@/lib/formatters'
@@ -11,6 +12,7 @@ function sumGrupo(items: ItemGrupoEncargo[]) { return items.reduce((s, i) => s +
 
 export default function ParametrosGlobais({ data, onUpdate }: Props) {
   const { globalParams: p, gruposEncargos: g } = data
+  const [showInfo, setShowInfo] = useState(false)
   const [params, setParams] = useState<GlobalParams>(p)
   const [grupos, setGrupos] = useState<GruposEncargos>(g)
 
@@ -86,19 +88,13 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
     <div className="flex flex-col gap-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Parâmetros Globais</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-1">Parâmetros Globais <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h1>
           <p className="text-base-content/50 text-sm">Configurações de cálculo do sistema</p>
         </div>
         <div className="flex gap-2">
           <button onClick={restore} className="btn btn-ghost btn-sm">Restaurar Padrões</button>
           <button onClick={saveParams} className="btn btn-primary btn-sm">Salvar</button>
         </div>
-      </div>
-
-      <div className="card bg-base-200 p-4 text-sm text-base-content/70">
-        Estes parâmetros são globais — afetam todos os orçamentos do sistema.
-        Altere apenas se houver mudança na legislação trabalhista, tabela SINAPI
-        ou nas condições operacionais da empresa.
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -155,10 +151,10 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
           <p className="font-semibold mb-3">Valores Derivados (calculados)</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
             {[
-              { l: 'Vh Qualificado s/enc', v: `${vhQualSem.toFixed(2)}/h` },
-              { l: 'Vh Qualificado c/enc', v: `${vhQualCom.toFixed(2)}/h` },
-              { l: 'Vh Servente s/enc', v: `${vhServSem.toFixed(2)}/h` },
-              { l: 'Vh Servente c/enc', v: `${vhServCom.toFixed(2)}/h` },
+              { l: 'Vh Qualificado s/enc', v: `R$ ${vhQualSem.toFixed(2)}/h` },
+              { l: 'Vh Qualificado c/enc', v: `R$ ${vhQualCom.toFixed(2)}/h` },
+              { l: 'Vh Servente s/enc', v: `R$ ${vhServSem.toFixed(2)}/h` },
+              { l: 'Vh Servente c/enc', v: `R$ ${vhServCom.toFixed(2)}/h` },
               { l: 'Qualificado c/enc (mês)', v: formatCurrency(params.salarioQualificado * fatorEncargos) },
               { l: 'Servente c/enc (mês)', v: formatCurrency(params.salarioServente * fatorEncargos) },
               { l: 'Fator Encargos', v: fatorEncargos.toFixed(4) },
@@ -166,7 +162,7 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
             ].map(({ l, v }) => (
               <div key={l} className="bg-base-200 rounded p-2">
                 <p className="text-xs text-base-content/50">{l}</p>
-                <p className="font-mono font-semibold text-sm">R$ {v.startsWith('R$') ? v.slice(2) : v}</p>
+                <p className="font-mono font-semibold text-sm">{v}</p>
               </div>
             ))}
           </div>
@@ -241,6 +237,16 @@ export default function ParametrosGlobais({ data, onUpdate }: Props) {
           </div>
         </div>
       </div>
+      {showInfo && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">Parâmetros Globais</h3>
+            <p className="text-sm text-base-content/70">Estes parâmetros são globais — afetam todos os orçamentos do sistema. Altere apenas se houver mudança na legislação trabalhista, tabela SINAPI ou nas condições operacionais da empresa.</p>
+            <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
+        </div>
+      )}
     </div>
   )
 }

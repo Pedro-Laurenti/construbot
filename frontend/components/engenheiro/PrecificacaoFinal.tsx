@@ -5,7 +5,7 @@ import { loadStorage, saveStorage } from '@/lib/storage'
 import { PLANTAS_PADRAO, CONDICOES_FINANCIAMENTO, FASES_OBRA_PADRAO } from '@/lib/mockData'
 import { calcularFluxoCaixaINCC, calcularParcelaPrice, calcularAporteMinimo, calcularTabelaAportes, calcularMatEngenheiro } from '@/lib/calculos'
 import { formatCurrency, formatPercentual } from '@/lib/formatters'
-import { MdSend, MdAttachMoney, MdAccountBalance, MdCheckCircle, MdInsertChart } from 'react-icons/md'
+import { MdSend, MdAttachMoney, MdAccountBalance, MdCheckCircle, MdInsertChart, MdInfo } from 'react-icons/md'
 import type { EngineerData, Orcamento, SaidaCliente, OrcamentoEngenheiro, FaseObra } from '@/types'
 
 interface Props {
@@ -51,6 +51,7 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
   const modoWizard = !!orcamentoIdProp && !!engDataProp
 
   const [selectedOrcId, setSelectedOrcId] = useState(orcamentoIdProp ?? '')
+  const [showInfo, setShowInfo] = useState(false)
   const [confirmModal, setConfirmModal] = useState(false)
   const [rascunhoSalvo, setRascunhoSalvo] = useState(false)
 
@@ -147,13 +148,7 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl">
-      <h2 className="text-xl font-bold">E6 — Precificação Final</h2>
-
-      {modoWizard && (
-        <div className="card bg-base-200 p-4 text-sm text-base-content/70">
-          Consolidação dos custos de mão de obra (E4) e materiais (E5), aplicação do INCC e BDI e geração dos valores finais para entrega ao cliente.
-        </div>
-      )}
+      <h2 className="text-xl font-bold flex items-center gap-1">E6 — Precificação Final <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h2>
 
       {!modoWizard && (
         <fieldset className="fieldset">
@@ -229,17 +224,18 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
           <details className="collapse collapse-arrow bg-base-100 shadow rounded-2xl">
             <summary className="collapse-title font-semibold py-3 px-4 min-h-0">
-              Bloco 2 — Cronograma e Correção INCC
-              <span className="text-xs text-base-content/50 ml-2 font-normal">+{formatCurrency(custoDiretoComInccMEI - custoDiretoMEI)} INCC</span>
-            </summary>
-            <div className="collapse-content">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-semibold">Bloco 2 — Cronograma e Correção INCC</p>
-                <button onClick={salvarFases} className="btn btn-ghost btn-xs gap-1">
+              <span className="flex items-center justify-between w-full pr-2">
+                <span>
+                  Bloco 2 — Cronograma e Correção INCC
+                  <span className="text-xs text-base-content/50 ml-2 font-normal">+{formatCurrency(custoDiretoComInccMEI - custoDiretoMEI)} INCC</span>
+                </span>
+                <button onClick={e => { e.preventDefault(); salvarFases() }} className="btn btn-ghost btn-xs gap-1 z-10" title="Salvar fases">
                   {rascunhoSalvo ? <MdCheckCircle size={14} className="text-success" /> : <MdInsertChart size={14} />}
                   Salvar fases
                 </button>
-              </div>
+              </span>
+            </summary>
+            <div className="collapse-content">
               <p className="text-xs text-base-content/50 mb-2">Distribua os custos por fase para calcular o impacto do INCC ao longo da obra.</p>
               <p className="text-xs text-base-content/50 mb-4">INCC Mensal: {formatPercentual(incc)} | Prazo: {tempoMeses} meses</p>
 
@@ -418,6 +414,17 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
             </div>
           </div>
           <div className="modal-backdrop" onClick={() => setConfirmModal(false)} />
+        </div>
+      )}
+
+      {showInfo && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">E6 — Precificação Final</h3>
+            <p className="text-sm text-base-content/70">Consolidação dos custos de mão de obra (E4) e materiais (E5), aplicação do INCC e BDI e geração dos valores finais para entrega ao cliente.</p>
+            <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
         </div>
       )}
     </div>

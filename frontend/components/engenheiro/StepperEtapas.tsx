@@ -9,6 +9,7 @@ interface Props {
   etapasConcluidas: Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>
   onClickEtapa: (e: Etapa) => void
   parametrosCompletos: boolean
+  etapaVisivel?: Etapa
 }
 
 const ETAPAS: { id: Etapa; label: string; sub: string }[] = [
@@ -27,7 +28,7 @@ const PREREQ: Record<Etapa, Etapa | null> = {
   E6: 'E5',
 }
 
-export default function StepperEtapas({ etapaAtual, etapasConcluidas, onClickEtapa, parametrosCompletos }: Props) {
+export default function StepperEtapas({ etapaAtual, etapasConcluidas, onClickEtapa, parametrosCompletos, etapaVisivel }: Props) {
   function getEstado(etapa: Etapa): 'concluida' | 'ativa' | 'pendente' | 'bloqueada' {
     if (!parametrosCompletos) return 'bloqueada'
     if (etapasConcluidas.includes(etapa)) return 'concluida'
@@ -62,7 +63,12 @@ export default function StepperEtapas({ etapaAtual, etapasConcluidas, onClickEta
                 }`}
               >
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
-                  isActive ? 'border-primary bg-primary/10 animate-pulse' : isDone ? 'border-success bg-success/10' : isLocked ? 'border-base-content/10 bg-base-200' : 'border-base-content/30 bg-base-200'
+                  etapaVisivel === etapa.id && !isActive
+                    ? 'border-primary bg-primary/10 ring-2 ring-primary ring-offset-1'
+                    : isActive ? 'border-primary bg-primary/10 animate-pulse'
+                    : isDone ? 'border-success bg-success/10'
+                    : isLocked ? 'border-base-content/10 bg-base-200'
+                    : 'border-base-content/30 bg-base-200'
                 }`}>
                   {isDone ? <MdCheckCircle size={18} className="text-success" /> : isLocked ? <MdLock size={14} /> : <span className="text-xs font-bold">{etapa.label}</span>}
                 </div>

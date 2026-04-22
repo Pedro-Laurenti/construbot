@@ -15,6 +15,18 @@ function calcProds(valorRef: number) {
   return { produtividadeUNh: prodUNh, produtividadeUNdia: prodUNdia, metaProducaoMes: prodUNdia * 22, metaProducaoSemana: (prodUNdia * 22) / 4.33 }
 }
 
+const CATEGORIA_LABEL: Record<string, string> = {
+  FUNDACAO: 'Fundação',
+  ESTRUTURA_CONCRETO_ARMADO: 'Estrutura Concreto Armado',
+  ESTRUTURA_LAJE_PRE_MOLDADA: 'Estrutura Laje Pré-Moldada',
+  ALVENARIA: 'Alvenaria',
+  REGULARIZACAO_PISO: 'Regularização de Piso',
+  REGULARIZACAO_PAREDES_TETOS: 'Regularização Paredes/Tetos',
+  ACABAMENTO_PISO_INTERNO: 'Acabamento Piso Interno',
+  ACABAMENTO_PAREDE_INTERNA: 'Acabamento Parede Interna',
+  ACABAMENTO_PAREDE_EXTERNA: 'Acabamento Parede Externa',
+}
+
 export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
   const [composicoes, setComposicoes] = useState<ComposicaoProfissional[]>(COMPOSICOES_PROFISSIONAIS)
   const [aba, setAba] = useState<'composicoes' | 'hidraulica'>('composicoes')
@@ -67,7 +79,7 @@ export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
       </div>
 
       <div role="tablist" className="tabs tabs-boxed w-fit">
-        <button role="tab" onClick={() => setAba('composicoes')} className={`tab ${aba === 'composicoes' ? 'tab-active' : ''}`}>Composições (15)</button>
+        <button role="tab" onClick={() => setAba('composicoes')} className={`tab ${aba === 'composicoes' ? 'tab-active' : ''}`}>Composições ({composicoes.length})</button>
         <button role="tab" onClick={() => setAba('hidraulica')} className={`tab ${aba === 'hidraulica' ? 'tab-active' : ''}`}>Hidráulica</button>
       </div>
 
@@ -88,7 +100,7 @@ export default function ComposicoesProfissionais({ data, onUpdate }: Props) {
               {composicoes.map(c => (
                 <tr key={c.id} className="hover">
                   <td>{c.id}</td>
-                  <td className="text-xs max-w-[120px] truncate">{c.categoria.replace(/_/g, ' ')}</td>
+                  <td className="text-xs max-w-[120px] truncate">{CATEGORIA_LABEL[c.categoria] ?? c.categoria.replace(/_/g, ' ')}</td>
                   <td className="text-xs">{c.profissional}</td>
                   <td className="text-xs max-w-[150px] truncate">{c.servico}</td>
                   <td className="font-mono text-xs">{c.refSINAPI}</td>

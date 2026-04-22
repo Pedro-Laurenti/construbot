@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { calcularMOEngenheiro } from '@/lib/calculos'
 import { formatCurrency } from '@/lib/formatters'
 import { COMPOSICOES_PROFISSIONAIS } from '@/lib/mockData'
-import { MdCheckCircle } from 'react-icons/md'
+import { MdCheckCircle, MdInfo } from 'react-icons/md'
 import type { EngineerData, CalculoMOConfig, CalculoMOResultado, CenarioDetalhadoMO, OrcamentoEngenheiro, CenarioMOServico, ContratoModalidade } from '@/types'
 
 interface Props {
@@ -86,6 +86,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
         composicaoBasica: item.composicaoBasica,
       }))
 
+  const [showInfo, setShowInfo] = useState(false)
   const [configs, setConfigs] = useState<Record<string, CalculoMOConfig>>(() => {
     const base: Record<string, CalculoMOConfig> = {}
     itensLista.forEach(item => {
@@ -174,7 +175,10 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
       cenarioEscolhido: cenarioSel[id] ?? 'Ótima',
       modalidade: modalidades[id] ?? 'MEI',
     }
-    onUpdateEng({ calculosMO: { ...engData!.calculosMO, [id]: cenario } })
+    const updatedMO = { ...engData!.calculosMO, [id]: cenario }
+    onUpdateEng({ calculosMO: updatedMO })
+    const nextPendingId = itensLista.find(item => item.id !== id && !updatedMO[item.id])?.id ?? null
+    if (nextPendingId) setSelected(nextPendingId)
   }
 
   const config = selected ? configs[selected] : null
@@ -194,15 +198,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
 
   return (
     <div className="flex flex-col gap-4 max-w-full">
-      <h2 className="text-xl font-bold">{modoWizard ? 'E4 — Custo de Mão de Obra' : 'Calculadora — Mão de Obra'}</h2>
-
-      {modoWizard && (
-        <div className="card bg-base-200 p-4 text-sm text-base-content/70">
-          Para cada serviço, o sistema calcula três cenários de equipe com base na
-          produtividade SINAPI. Selecione o cenário que melhor equilibra custo e prazo.
-          O cenário Ótimo minimiza o custo de mão de obra por unidade.
-        </div>
-      )}
+      <h2 className="text-xl font-bold flex items-center gap-1">{modoWizard ? 'E4 — Custo de Mão de Obra' : 'Calculadora — Mão de Obra'} <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h2>
 
       {modoWizard && (
         <div>
@@ -217,7 +213,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
           const salvo = modoWizard ? !!engData!.calculosMO[item.id] : calc
           return (
             <button key={item.id} onClick={() => setSelected(item.id)} className={`btn btn-sm gap-1 ${selected === item.id ? 'btn-primary' : 'btn-ghost'}`}>
-              {salvo && <MdCheckCircle size={14} className="text-success" />}
+              {salvo && <MdCheckCircle size={14} className={selected === item.id ? 'text-primary-content' : 'text-success'} />}
               {item.servico.replace(/_/g, ' ')}
             </button>
           )
@@ -314,7 +310,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
           </div>
 
           {resultado && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 sticky top-4 self-start">
               <div className="grid grid-cols-3 gap-2">
                 {(['Mensalista', 'Ótima', 'Prazo'] as const).map(nome => {
                   const c = nome === 'Mensalista' ? resultado.mensalista : nome === 'Ótima' ? resultado.otima : resultado.prazo
@@ -344,6 +340,17 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {showInfo && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">{modoWizard ? 'E4 — Custo de Mão de Obra' : 'Calculadora — Mão de Obra'}</h3>
+            <p className="text-sm text-base-content/70">Para cada serviço, o sistema calcula três cenários de equipe com base na produtividade SINAPI. Selecione o cenário que melhor equilibra custo e prazo. O cenário Ótimo minimiza o custo de mão de obra por unidade.</p>
+            <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
         </div>
       )}
     </div>

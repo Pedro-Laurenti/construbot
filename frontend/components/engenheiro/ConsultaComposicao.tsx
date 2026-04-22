@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { COMPOSICOES_ANALITICAS, INSUMOS_SINAPI, UF_LIST } from '@/lib/mockData'
-import { MdCheckCircle, MdWarning } from 'react-icons/md'
+import { MdCheckCircle, MdWarning, MdInfo } from 'react-icons/md'
 import { formatCurrency } from '@/lib/formatters'
 import type { ItemComposicao, OrcamentoEngenheiro, ConsultaSINAPIServico, InsumoResolvido } from '@/types'
 
@@ -22,6 +22,7 @@ interface Props {
 
 export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData, onUpdateEng }: Props) {
   const modoWizard = !!orcamentoId && !!engData
+  const [showInfo, setShowInfo] = useState(false)
   const [encargos, setEncargos] = useState<'SEM' | 'COM'>('COM')
   const [ufSel, setUfSel] = useState(defaultUf)
   const [codigo, setCodigo] = useState('')
@@ -93,6 +94,7 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
 
   function salvarConsulta() {
     if (!resultado || !servicoAtual || !onUpdateEng || !engData) return
+    if (semPreco.length > 0) return
     const insumos: InsumoResolvido[] = resultado.itens.map(it => ({
       codigo: it.codigo,
       descricao: it.descricao,
@@ -107,7 +109,10 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
       insumos,
       subtotal: resultado.subtotal,
     }
-    onUpdateEng({ consultasSINAPI: { ...engData.consultasSINAPI, [servicoAtual.id]: consultaSINAPI } })
+    const updatedConsultas = { ...engData.consultasSINAPI, [servicoAtual.id]: consultaSINAPI }
+    onUpdateEng({ consultasSINAPI: updatedConsultas })
+    const nextIdx = servicos.findIndex((s, i) => i !== servicoIdx && !updatedConsultas[s.id])
+    if (nextIdx >= 0) setServicoIdx(nextIdx)
   }
 
   const hasFallback = resultado?.itens.some(i => i.isFallbackSP)
@@ -120,16 +125,7 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
-      <h2 className="text-xl font-bold">{modoWizard ? 'E3 — Preços dos Insumos' : 'Consulta de Composição com Custo'}</h2>
-
-      {modoWizard && (
-        <div className="card bg-base-200 p-4 text-sm text-base-content/70">
-          Os insumos de cada serviço são carregados automaticamente da base SINAPI ({ufSel}).
-          Verifique se os preços refletem a realidade da sua região e edite quando necessário.
-          Estes preços alimentam o cálculo de materiais na etapa E5.
-          Fórmula: Custo = Quantidade × Σ (coeficiente × preço)
-        </div>
-      )}
+      <h2 className="text-xl font-bold flex items-center gap-1">{modoWizard ? 'E3 — Preços dos Insumos' : 'Consulta de Composição com Custo'} <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h2>
 
       {modoWizard && (
         <div>
@@ -149,7 +145,7 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
                 onClick={() => setServicoIdx(idx)}
                 className={`btn btn-xs gap-1 ${servicoIdx === idx ? 'btn-primary' : 'btn-ghost'}`}
               >
-                {semComposicao ? <MdWarning size={12} className="text-error" /> : consultado && <MdCheckCircle size={12} className="text-success" />}
+                {semComposicao ? <MdWarning size={12} className="text-error" /> : consultado && <MdCheckCircle size={12} className={servicoIdx === idx ? 'text-primary-content' : 'text-success'} />}
                 {s.descricao}
               </button>
             )
@@ -203,7 +199,7 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
                 <p className="text-xs text-base-content/50">Grupo: {resultado.composicao.grupo} · Unidade: {resultado.composicao.unidade}</p>
               </div>
               {modoWizard && (
-                <button onClick={salvarConsulta} className="btn btn-success btn-sm gap-1">
+                <button onClick={salvarConsulta} disabled={semPreco.length > 0} className="btn btn-success btn-sm gap-1">
                   <MdCheckCircle size={14} /> Confirmar preços
                 </button>
               )}
@@ -278,6 +274,16 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
         <div className="flex justify-between">
           <button onClick={() => setServicoIdx(i => Math.max(0, i - 1))} disabled={servicoIdx === 0} className="btn btn-ghost btn-sm">Serviço anterior</button>
           <button onClick={() => setServicoIdx(i => Math.min(servicos.length - 1, i + 1))} disabled={servicoIdx === servicos.length - 1} className="btn btn-ghost btn-sm">Próximo serviço</button>
+        </div>
+      )}
+      {showInfo && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">{modoWizard ? 'E3 — Preços dos Insumos' : 'Consulta de Composição'}</h3>
+            <p className="text-sm text-base-content/70">Os insumos de cada serviço são carregados automaticamente da base SINAPI ({ufSel}). Verifique se os preços refletem a realidade da sua região e edite quando necessário. Estes preços alimentam o cálculo de materiais na etapa E5. Fórmula: Custo = Quantidade × Σ (coeficiente × preço)</p>
+            <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
         </div>
       )}
     </div>

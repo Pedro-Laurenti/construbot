@@ -81,38 +81,29 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
                   </td>
                   <td className="text-xs font-mono">{etapa}</td>
                   <td>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 items-center flex-wrap">
                       {(orc.status === 'aguardando_engenheiro' || orc.status === 'em_calculo') && (
                         <button
                           onClick={() => onEnterWizard(orc)}
-                          className="btn btn-ghost btn-xs text-primary"
-                          title={orc.status === 'aguardando_engenheiro' ? 'Iniciar' : 'Continuar'}
+                          className="btn btn-primary btn-xs gap-1"
                         >
-                          {orc.status === 'aguardando_engenheiro' ? <MdPlayArrow size={14} /> : <MdArrowForward size={14} />}
+                          {orc.status === 'aguardando_engenheiro' ? <><MdPlayArrow size={14} /> Iniciar</> : <><MdArrowForward size={14} /> Continuar</>}
                         </button>
                       )}
                       {orc.status === 'entregue' && (
                         <button
                           onClick={() => reabrirOrcamento(orc)}
-                          className="btn btn-ghost btn-xs text-warning"
-                          title="Reabrir para edição"
+                          className="btn btn-ghost btn-xs text-warning gap-1"
                         >
-                          <MdLockOpen size={14} />
+                          <MdLockOpen size={14} /> Reabrir
                         </button>
                       )}
                       <button
                         onClick={() => { setSelected(orc); setObs(getReview(orc.id).observacoes) }}
-                        className="btn btn-ghost btn-xs text-success"
-                        title="Aprovar"
+                        className="btn btn-ghost btn-xs text-success gap-1"
+                        title="Aprovar / Rejeitar"
                       >
-                        <MdCheckCircle size={14} />
-                      </button>
-                      <button
-                        onClick={() => { setObs(getReview(orc.id).observacoes); updateReview(orc.id, 'rejeitado') }}
-                        className="btn btn-ghost btn-xs text-error"
-                        title="Rejeitar"
-                      >
-                        <MdCancel size={14} />
+                        <MdCheckCircle size={14} /> Revisar
                       </button>
                     </div>
                   </td>

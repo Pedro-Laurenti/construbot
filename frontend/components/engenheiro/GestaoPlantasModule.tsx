@@ -71,6 +71,7 @@ export default function GestaoPlantasModule({ data, onUpdate }: Props) {
   const [imgUrl, setImgUrl] = useState('')
   const [novaCaract, setNovaCaract] = useState('')
   const [uploadError, setUploadError] = useState('')
+  const [confirmAction, setConfirmAction] = useState<{ label: string; onConfirm: () => void } | null>(null)
 
   function openAdd() { setEditingId(null); setForm(emptyForm); setImgUrl(''); setNovaCaract(''); setUploadError(''); setShowModal(true) }
 
@@ -115,13 +116,17 @@ export default function GestaoPlantasModule({ data, onUpdate }: Props) {
   }
 
   function handleDelete(id: string) {
-    if (!confirm('Tem certeza que deseja excluir esta planta?')) return
-    onUpdate({ plantas: data.plantas.filter(p => p.id !== id) })
+    setConfirmAction({
+      label: 'Tem certeza que deseja excluir esta planta?',
+      onConfirm: () => onUpdate({ plantas: data.plantas.filter(p => p.id !== id) }),
+    })
   }
 
   function restoreDefaults() {
-    if (!confirm('Restaurar todas as plantas para o padrão original?')) return
-    onUpdate({ plantas: PLANTAS_PADRAO })
+    setConfirmAction({
+      label: 'Restaurar todas as plantas para o padrão original? Esta ação não pode ser desfeita.',
+      onConfirm: () => onUpdate({ plantas: PLANTAS_PADRAO }),
+    })
   }
 
   function addImageUrl() {
@@ -208,8 +213,8 @@ export default function GestaoPlantasModule({ data, onUpdate }: Props) {
                 <td>{p.servicos.length}</td>
                 <td>
                   <div className="flex gap-1">
-                    <button className="btn btn-ghost btn-xs" onClick={() => openEdit(p)}><MdEdit size={14} className="text-info" /></button>
-                    <button className="btn btn-ghost btn-xs" onClick={() => handleDelete(p.id)}><MdDelete size={14} className="text-error" /></button>
+                    <button className="btn btn-ghost btn-xs gap-1" onClick={() => openEdit(p)}><MdEdit size={14} className="text-info" /> Editar</button>
+                    <button className="btn btn-ghost btn-xs gap-1 text-error" onClick={() => handleDelete(p.id)}><MdDelete size={14} /> Excluir</button>
                   </div>
                 </td>
               </tr>
@@ -360,6 +365,19 @@ export default function GestaoPlantasModule({ data, onUpdate }: Props) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <p className="text-sm mb-4">{confirmAction.label}</p>
+            <div className="modal-action">
+              <button onClick={() => setConfirmAction(null)} className="btn btn-ghost btn-sm">Cancelar</button>
+              <button onClick={() => { confirmAction.onConfirm(); setConfirmAction(null) }} className="btn btn-error btn-sm">Confirmar</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setConfirmAction(null)} />
         </div>
       )}
     </div>

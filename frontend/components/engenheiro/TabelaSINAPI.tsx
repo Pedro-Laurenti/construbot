@@ -53,6 +53,9 @@ export default function TabelaSINAPI({ uf, onUfChange }: Props) {
       </div>
 
       <div className="card bg-base-100 shadow overflow-x-auto">
+        <div className="px-4 pt-3 pb-1 text-xs text-base-content/50">
+          {filtrados.length} resultado(s) encontrado(s)
+        </div>
         <table className="table table-sm">
           <thead>
             <tr>

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdHomeWork } from 'react-icons/md'
+import { MdDashboard, MdSettings, MdTableChart, MdSearch, MdAccountTree, MdPeople, MdCalculate, MdEngineering, MdFolderOpen, MdLogout, MdMoreVert, MdApartment, MdHomeWork, MdPriceChange, MdSummarize } from 'react-icons/md'
 
-export type EngineerModule = 'painel' | 'parametros' | 'consulta' | 'calculadora-mo' | 'calculadora-mat' | 'sinapi' | 'composicoes-analiticas' | 'composicoes-profissionais' | 'orcamentos' | 'gestao-plantas'
+export type EngineerModule = 'painel' | 'parametros' | 'consulta' | 'calculadora-mo' | 'calculadora-mat' | 'sinapi' | 'composicoes-analiticas' | 'composicoes-profissionais' | 'orcamentos' | 'gestao-plantas' | 'precificador' | 'consolidacao'
 
 interface NavSection {
   title: string
@@ -27,6 +27,8 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'consulta', label: 'Consulta de Composição', sub: 'SINAPI com custo avulso', icon: <MdSearch size={20} /> },
       { id: 'calculadora-mo', label: 'Calculadora MO', sub: 'Cálculo avulso', icon: <MdCalculate size={20} /> },
       { id: 'calculadora-mat', label: 'Calculadora Materiais', sub: 'Cálculo avulso', icon: <MdEngineering size={20} /> },
+      { id: 'precificador', label: 'Precificador', sub: 'Configurar serviços', icon: <MdPriceChange size={20} /> },
+      { id: 'consolidacao', label: 'Consolidação', sub: 'Totais + BDI + exportar', icon: <MdSummarize size={20} /> },
     ],
   },
   {
@@ -110,12 +112,6 @@ export default function SidebarEngenheiro({ activeModule, onNavigate, onLogout }
           </div>
         ))}
       </nav>
-
-      <div className="divider my-0 h-px" />
-      <button onClick={onLogout} className="flex items-center gap-3 px-4 py-3 w-full text-left hover:bg-base-200 transition-colors text-error flex-shrink-0">
-        <MdLogout size={20} />
-        <span className="text-sm">Sair</span>
-      </button>
     </aside>
   )
 }

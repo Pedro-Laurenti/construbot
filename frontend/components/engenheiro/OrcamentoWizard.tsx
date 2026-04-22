@@ -64,7 +64,6 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
   const parametrosOk = isParametrosCompletos(data)
 
   const [etapaVisivel, setEtapaVisivel] = useState<EtapaWizard>(etapaAtual)
-  const [confirmInvalidar, setConfirmInvalidar] = useState<{ etapa: EtapaWizard; afetadas: EtapaWizard[] } | null>(null)
 
   const planta = orcamento.parametros ? PLANTAS_PADRAO.find(p => p.id === orcamento.parametros!.plantaId) : null
   const badge = getStatusBadge(orcamento.status, engData?.etapaAtual ?? '-')
@@ -125,27 +124,7 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
   }
 
   function navegarParaEtapa(etapa: EtapaWizard) {
-    const idx = ETAPA_ORDEM.indexOf(etapa)
-    const idxAtual = ETAPA_ORDEM.indexOf(etapaVisivel)
-    if (idx < idxAtual && etapasConcluidas.includes(etapa)) {
-      const etapasAfetadas = ETAPA_ORDEM.slice(idx + 1).filter(e =>
-        etapasConcluidas.includes(e as 'E2' | 'E3' | 'E4' | 'E5' | 'E6')
-      ) as EtapaWizard[]
-      if (etapasAfetadas.length > 0) {
-        setConfirmInvalidar({ etapa, afetadas: etapasAfetadas })
-        return
-      }
-    }
     setEtapaVisivel(etapa)
-  }
-
-  function confirmarInvalidar() {
-    if (!confirmInvalidar || !engData) return
-    const { etapa, afetadas } = confirmInvalidar
-    const novasConcluidas = etapasConcluidas.filter(e => !afetadas.includes(e as EtapaWizard)) as Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>
-    atualizarEng({ etapaAtual: etapa, etapasConcluidas: novasConcluidas })
-    setEtapaVisivel(etapa)
-    setConfirmInvalidar(null)
   }
 
   function getValidacaoPendente(): string[] {
@@ -228,16 +207,21 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
           </div>
           <span className="text-xs text-base-content/40">{formatDate(orcamento.dataCriacao)}</span>
         </div>
-        <StepperEtapas
-          etapaAtual={engData?.etapaAtual ?? 'E2'}
-          etapasConcluidas={etapasConcluidas as Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>}
-          onClickEtapa={navegarParaEtapa}
-          parametrosCompletos={parametrosOk}
-        />
+        <div className="max-w-5xl mx-auto w-full">
+          <StepperEtapas
+            etapaAtual={engData?.etapaAtual ?? 'E2'}
+            etapasConcluidas={etapasConcluidas as Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>}
+            onClickEtapa={navegarParaEtapa}
+            parametrosCompletos={parametrosOk}
+            etapaVisivel={etapaVisivel}
+          />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {renderEtapa()}
+        <div className="max-w-5xl mx-auto">
+          {renderEtapa()}
+        </div>
       </div>
 
       {etapaVisivel !== 'E6' && etapaVisivel !== 'E2' && (
@@ -262,27 +246,12 @@ export default function OrcamentoWizard({ orcamento, data, onUpdate, onVoltar }:
             disabled={!podeAvancar}
             className="btn btn-primary btn-sm gap-1"
           >
-            Avançar etapa <MdArrowForward size={16} />
+            Concluir e avançar <MdArrowForward size={16} />
           </button>
         </div>
       )}
 
-      {confirmInvalidar && (
-        <div className="modal modal-open">
-          <div className="modal-box">
-            <h3 className="font-bold text-lg mb-2">Confirmar retorno</h3>
-            <p className="text-sm mb-3">
-              Voltar para <strong>{confirmInvalidar.etapa}</strong> vai redefinir as etapas:{' '}
-              <strong>{confirmInvalidar.afetadas.join(', ')}</strong>. Os dados calculados nessas etapas serão perdidos.
-            </p>
-            <div className="modal-action">
-              <button onClick={() => setConfirmInvalidar(null)} className="btn btn-ghost btn-sm">Cancelar</button>
-              <button onClick={confirmarInvalidar} className="btn btn-warning btn-sm">Confirmar e voltar</button>
-            </div>
-          </div>
-          <div className="modal-backdrop" onClick={() => setConfirmInvalidar(null)} />
-        </div>
-      )}
+
     </div>
   )
 }

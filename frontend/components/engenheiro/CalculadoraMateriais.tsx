@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { INSUMOS_SINAPI, UF_LIST } from '@/lib/mockData'
 import { calcularMatEngenheiro } from '@/lib/calculos'
 import { formatCurrency } from '@/lib/formatters'
-import { MdWarning, MdCheckCircle } from 'react-icons/md'
+import { MdWarning, MdCheckCircle, MdInfo } from 'react-icons/md'
 import type { EngineerData, CalculoMatConfig, InsumoCalculo, OrcamentoEngenheiro } from '@/types'
 
 interface Props {
@@ -30,6 +30,7 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
     ? (engData!.quantitativos ?? []).map(q => ({ id: q.id, servico: q.serviceType, unidade: q.unidade, quantidade: q.quantidade, composicaoBasica: q.composicaoBasica }))
     : data.precificadorItens.map(i => ({ id: i.id, servico: i.servico, unidade: i.unidade, quantidade: i.quantidade, composicaoBasica: i.composicaoBasica }))
 
+  const [showInfo, setShowInfo] = useState(false)
   const [configs, setConfigs] = useState<Record<string, CalculoMatConfig>>(() => {
     const base: Record<string, CalculoMatConfig> = {}
     itensLista.forEach(item => {
@@ -106,7 +107,10 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
   function salvar(servicoId: string) {
     const cfg = configs[servicoId]
     if (modoWizard && onUpdateEng) {
-      onUpdateEng({ calculosMat: { ...engData!.calculosMat, [servicoId]: cfg } })
+      const updatedMat = { ...engData!.calculosMat, [servicoId]: cfg }
+      onUpdateEng({ calculosMat: updatedMat })
+      const nextPendingId = itensLista.find(item => item.id !== servicoId && !updatedMat[item.id])?.id ?? null
+      if (nextPendingId) setSelected(nextPendingId)
     } else {
       onUpdate({ calculoMatConfigs: { ...data.calculoMatConfigs, [servicoId]: cfg } })
     }
@@ -131,7 +135,7 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
     <div className="flex flex-col gap-4 max-w-full">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold">{modoWizard ? 'E5 — Custo de Materiais' : 'Calculadora — Materiais'}</h2>
+          <h2 className="text-xl font-bold flex items-center gap-1">{modoWizard ? 'E5 — Custo de Materiais' : 'Calculadora — Materiais'} <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h2>
         </div>
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-xs">UF</legend>
@@ -140,12 +144,6 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
           </select>
         </fieldset>
       </div>
-
-      {modoWizard && (
-        <div className="card bg-base-200 p-4 text-sm text-base-content/70">
-          Os insumos abaixo foram importados dos preços confirmados na etapa E3. Revise os coeficientes e ajuste valores caso necessário antes de salvar.
-        </div>
-      )}
 
       {modoWizard && (
         <div>
@@ -159,7 +157,7 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
           const salvo = modoWizard ? !!engData!.calculosMat[item.id] : !!data.calculoMatConfigs[item.id]
           return (
             <button key={item.id} onClick={() => setSelected(item.id)} className={`btn btn-sm gap-1 ${selected === item.id ? 'btn-primary' : 'btn-ghost'}`}>
-              {salvo && <MdCheckCircle size={14} className="text-success" />}
+              {salvo && <MdCheckCircle size={14} className={selected === item.id ? 'text-primary-content' : 'text-success'} />}
               {item.servico.replace(/_/g, ' ')}
             </button>
           )
@@ -261,6 +259,16 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
           </div>
         </div>
       </div>
+      {showInfo && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">{modoWizard ? 'E5 — Custo de Materiais' : 'Calculadora — Materiais'}</h3>
+            <p className="text-sm text-base-content/70">Os insumos abaixo foram importados dos preços confirmados na etapa E3. Revise os coeficientes e ajuste valores caso necessário antes de salvar.</p>
+            <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
+        </div>
+      )}
     </div>
   )
 }

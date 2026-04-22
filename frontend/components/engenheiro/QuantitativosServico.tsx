@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { loadStorage, saveStorage } from '@/lib/storage'
 import { PLANTAS_PADRAO, SERVICE_LABELS, SERVICE_SPECS, SERVICE_SPEC_LABELS, SERVICE_HELP, resolverSINAPI } from '@/lib/mockData'
 import { gerarQuantitativosFromParametros } from '@/lib/calculos'
-import { MdAdd, MdCheck, MdDelete } from 'react-icons/md'
+import { MdAdd, MdCheck, MdDelete, MdInfo } from 'react-icons/md'
 import type { EngineerData, Orcamento, QuantitativoServico, ContratoModalidade, OrcamentoEngenheiro, ServiceType } from '@/types'
 
 interface Props {
@@ -39,6 +39,7 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
   const orc = orcamentos.find(o => o.id === orcamentoId) ?? null
   const engExistente = orcamentoId ? data.orcamentosEngenheiro[orcamentoId] : null
 
+  const [showInfo, setShowInfo] = useState(false)
   const [qtRows, setQtRows] = useState<QuantitativoServico[]>(() => {
     if (engExistente?.quantitativos?.length) return engExistente.quantitativos
     if (orc?.parametros) {
@@ -139,17 +140,14 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
   return (
     <div className="flex flex-col gap-4 max-w-4xl">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">E2 — Serviços da Obra</h2>
-        <div className="flex gap-2">
+        <h2 className="text-xl font-bold flex items-center gap-1">E2 — Serviços da Obra <button onClick={() => setShowInfo(true)} className="btn btn-ghost btn-xs btn-circle"><MdInfo size={16} /></button></h2>
+        <div className="flex items-center gap-2">
+          {pendentes.length > 0 && (
+            <span className="text-xs text-warning font-medium">{pendentes.length} serviço(s) sem composição</span>
+          )}
           <button onClick={addServico} className="btn btn-ghost btn-sm gap-1"><MdAdd size={16} /> Serviço manual</button>
           <button onClick={confirmar} className="btn btn-primary btn-sm gap-1" disabled={pendentes.length > 0 || qtRows.length === 0}><MdCheck size={16} /> Salvar e avançar</button>
         </div>
-      </div>
-
-      <div className="card bg-base-200 p-4 text-sm text-base-content/70">
-        {planta
-          ? <>A planta <strong>{planta.nome}</strong> gerou <strong>{qtRows.length}</strong> serviços abaixo. Confirme as quantidades, selecione as especificações de cada serviço e o código SINAPI será identificado automaticamente. Todos os serviços precisam estar configurados para avançar.</>
-          : 'Orçamento sem parâmetros de cliente. Adicione serviços manualmente.'}
       </div>
 
       <div>
@@ -271,6 +269,20 @@ export default function QuantitativosServico({ data, onUpdate, orcamentos, orcam
           <div className="card-body items-center py-12">
             <p className="text-base-content/40 text-sm">Nenhum serviço. Selecione um orçamento com parâmetros ou adicione manualmente.</p>
           </div>
+        </div>
+      )}
+      {showInfo && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold mb-2">E2 — Serviços da Obra</h3>
+            <p className="text-sm text-base-content/70">
+              {planta
+                ? <>A planta <strong>{planta.nome}</strong> gerou <strong>{qtRows.length}</strong> serviços. Confirme as quantidades, selecione as especificações de cada serviço e o código SINAPI será identificado automaticamente. Todos os serviços precisam estar configurados para avançar.</>
+                : 'Orçamento sem parâmetros de cliente. Adicione serviços manualmente.'}
+            </p>
+            <div className="modal-action"><button onClick={() => setShowInfo(false)} className="btn btn-sm btn-ghost">Fechar</button></div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setShowInfo(false)} />
         </div>
       )}
     </div>
