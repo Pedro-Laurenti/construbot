@@ -79,3 +79,7 @@ CM_COMPOSICOES_ANALITICAS_MOCK = {
     "88489": {"produtividade_basica": 1 / 0.35, "proporcao_ajudante": 0.08 / 0.35},
     "88423": {"produtividade_basica": 1 / 0.40, "proporcao_ajudante": 0.10 / 0.40},
 }
+
+CM_STORAGE_ACCOUNT_NAME = os.getenv("CM_STORAGE_ACCOUNT_NAME", "")
+CM_STORAGE_ACCOUNT_URL = os.getenv("CM_STORAGE_ACCOUNT_URL", "")
+CM_STORAGE_CONNECTION_STRING = os.getenv("CM_STORAGE_CONNECTION_STRING", "")

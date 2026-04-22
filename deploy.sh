@@ -25,7 +25,24 @@ log "Garantindo resource group '$RG' em '$LOCATION'..."
 az group create --name "$RG" --location "$LOCATION" --output none
 ok "Resource group pronto."
 
-# ── 2. Container Registry ────────────────────────────────────────
+# ── 2. Storage Account ──────────────────────────────────────────
+STORAGE_ACCOUNT="construtobtstorage"
+
+log "Garantindo Storage Account '$STORAGE_ACCOUNT' com Tables..."
+az storage account create \
+  --name "$STORAGE_ACCOUNT" \
+  --resource-group "$RG" \
+  --location "$LOCATION" \
+  --sku Standard_LRS \
+  --kind StorageV2 \
+  --min-tls-version TLS1_2 \
+  --allow-blob-public-access false \
+  --output none 2>/dev/null || true
+
+STORAGE_URL="https://${STORAGE_ACCOUNT}.table.core.windows.net"
+ok "Storage Account pronto: $STORAGE_URL"
+
+# ── 3. Container Registry ────────────────────────────────────────
 log "Garantindo Container Registry '$ACR'..."
 az acr create \
   --name "$ACR" \
@@ -40,7 +57,7 @@ ACR_USER=$(az acr credential show --name "$ACR" --query username -o tsv)
 ACR_PASS=$(az acr credential show --name "$ACR" --query "passwords[0].value" -o tsv)
 ok "Registry: $ACR_SERVER"
 
-# ── 3. Build e push: backend ────────────────────────────────────
+# ── 4. Build e push: backend ────────────────────────────────────
 log "Build do backend (Python/FastAPI)..."
 az acr build \
   --registry "$ACR" \
@@ -48,7 +65,7 @@ az acr build \
   ./backend
 ok "Backend image publicada."
 
-# ── 4. Build e push: frontend ───────────────────────────────────
+# ── 5. Build e push: frontend ───────────────────────────────────
 log "Build do frontend (Next.js) com BACKEND_URL=$BACKEND_URL ..."
 az acr build \
   --registry "$ACR" \
@@ -57,7 +74,7 @@ az acr build \
   ./frontend
 ok "Frontend image publicada."
 
-# ── 5. App Service Plan ──────────────────────────────────────────
+# ── 6. App Service Plan ──────────────────────────────────────────
 log "Garantindo App Service Plan '$PLAN' (B1, Linux)..."
 az appservice plan create \
   --name "$PLAN" \
@@ -68,7 +85,7 @@ az appservice plan create \
   --output none 2>/dev/null || true
 ok "Plan pronto."
 
-# ── 6. Backend Web App ───────────────────────────────────────────
+# ── 7. Backend Web App ───────────────────────────────────────────
 log "Criando/atualizando backend web app '$BACKEND_APP'..."
 if az webapp show --name "$BACKEND_APP" --resource-group "$RG" &>/dev/null; then
   # App já existe: atualiza apenas a imagem do container
@@ -97,9 +114,48 @@ else
     --settings WEBSITES_PORT=8000 \
     --output none
 fi
+
+log "Habilitando Managed Identity (system-assigned) no backend..."
+az webapp identity assign \
+  --name "$BACKEND_APP" \
+  --resource-group "$RG" \
+  --output none
+
+PRINCIPAL_ID=$(az webapp identity show \
+  --name "$BACKEND_APP" \
+  --resource-group "$RG" \
+  --query principalId -o tsv)
+
+ok "Managed Identity habilitada: $PRINCIPAL_ID"
+
+log "Atribuindo role 'Storage Table Data Contributor' ao backend..."
+STORAGE_SCOPE=$(az storage account show \
+  --name "$STORAGE_ACCOUNT" \
+  --resource-group "$RG" \
+  --query id -o tsv)
+
+az role assignment create \
+  --assignee "$PRINCIPAL_ID" \
+  --role "Storage Table Data Contributor" \
+  --scope "$STORAGE_SCOPE" \
+  --output none 2>/dev/null || true
+
+ok "RBAC configurado: backend tem acesso às Tables."
+
+log "Configurando variáveis de ambiente no backend..."
+az webapp config appsettings set \
+  --name "$BACKEND_APP" \
+  --resource-group "$RG" \
+  --settings \
+    CM_STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT" \
+    CM_STORAGE_ACCOUNT_URL="$STORAGE_URL" \
+    CM_STORAGE_CONNECTION_STRING="" \
+  --output none
+
+ok "Variáveis de Storage configuradas no App Service."
 ok "Backend app pronto: https://${BACKEND_APP}.azurewebsites.net"
 
-# ── 7. Frontend Web App ──────────────────────────────────────────
+# ── 8. Frontend Web App ──────────────────────────────────────────
 log "Criando/atualizando frontend web app '$FRONTEND_APP'..."
 if az webapp show --name "$FRONTEND_APP" --resource-group "$RG" &>/dev/null; then
   az webapp config container set \
@@ -129,7 +185,7 @@ else
 fi
 ok "Frontend app pronto: https://${FRONTEND_APP}.azurewebsites.net"
 
-# ── 8. Restart para aplicar nova imagem ──────────────────────────
+# ── 9. Restart para aplicar nova imagem ──────────────────────────
 log "Reiniciando apps para aplicar novas imagens..."
 az webapp restart --name "$BACKEND_APP"  --resource-group "$RG" --output none
 az webapp restart --name "$FRONTEND_APP" --resource-group "$RG" --output none

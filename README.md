@@ -165,6 +165,54 @@ Para redeploys, basta rodar `./deploy.sh` novamente — o script detecta apps ex
 
 ---
 
+## 🗄️ Infraestrutura Azure
+
+### Storage Account
+
+- **Nome**: `construtobtstorage` (ajustar se houver conflito)
+- **Tipo**: StorageV2, Standard_LRS
+- **Serviços habilitados**: Tables (etapa alfa-01), Blobs e Queues (etapas futuras)
+- **Autenticação**: Managed Identity em produção, connection string em dev local
+
+### Desenvolvimento Local
+
+1. Obter connection string:
+   ```bash
+   az storage account show-connection-string \
+     --name construtobtstorage \
+     --resource-group construbot-rg \
+     --output tsv
+   ```
+
+2. Criar `backend/.env` com a connection string obtida (ver `.env.example`)
+
+3. Rodar backend:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload --port 8000
+   ```
+
+4. Verificar conectividade:
+   ```bash
+   curl http://localhost:8000/api/storage-health
+   ```
+
+### Produção
+
+Deploy via `./deploy.sh` configura automaticamente:
+- Storage Account
+- Managed Identity no backend
+- RBAC (Storage Table Data Contributor)
+- Variáveis de ambiente
+
+Verificar após deploy:
+```bash
+curl https://construbot-api.azurewebsites.net/api/storage-health
+```
+
+---
+
 ## 🌐 Variáveis de ambiente
 
 ### Frontend
@@ -175,7 +223,12 @@ Para redeploys, basta rodar `./deploy.sh` novamente — o script detecta apps ex
 
 ### Backend
 
-Nenhuma variável obrigatória no momento. Para produção, crie um `.env` com as credenciais necessárias e use `python-dotenv` (já incluso nas dependências).
+| Variável | Descrição | Padrão |
+|----------|-----------|--------|
+| `CM_STORAGE_ACCOUNT_NAME` | Nome do Storage Account (produção: via App Service Settings) | `""` |
+| `CM_STORAGE_ACCOUNT_URL` | URL do Table Service endpoint | `""` |
+| `CM_STORAGE_CONNECTION_STRING` | Connection string para dev local (produção: vazio, usa Managed Identity) | `""` |
+| `CM_APP_CORS_ORIGINS` | Origens permitidas para CORS (separadas por vírgula) | `http://localhost:3000,http://127.0.0.1:3000` |
 
 ---
 
