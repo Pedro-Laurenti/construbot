@@ -1,5 +1,6 @@
 ---
-mode: agent
+model: Claude Sonnet 4.6 (copilot)
+agent: agent
 ---
 # Infraestrutura Azure — Storage Account + Tables + Managed Identity
 
