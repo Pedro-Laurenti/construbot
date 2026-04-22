@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { INSUMOS_SINAPI, UF_LIST } from '@/lib/mockData'
 import { calcularMatEngenheiro } from '@/lib/calculos'
 import { formatCurrency } from '@/lib/formatters'
@@ -49,8 +49,16 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
     return base
   })
 
-  const [selected, setSelected] = useState<string | null>(itensLista[0]?.id ?? null)
+  const [selected, setSelected] = useState<string | null>(() => {
+    if (modoWizard) return engData?.uiState?.servicoSelecionadoE5 ?? itensLista[0]?.id ?? null
+    return itensLista[0]?.id ?? null
+  })
   const [uf, setUf] = useState(data.uf)
+
+  useEffect(() => {
+    if (!modoWizard || !onUpdateEng || !selected) return
+    onUpdateEng({ uiState: { ...(engData?.uiState ?? { etapaVisivel: 'E5' }), servicoSelecionadoE5: selected } })
+  }, [selected])
 
   function getPrecoByUF(codigo: string): { valor: number; fallback: boolean } {
     const ins = INSUMOS_SINAPI.find(i => i.codigo === codigo || i.codigo === codigo.padStart(8, '0'))
@@ -119,6 +127,22 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
   const cfg = selected ? configs[selected] : null
   const totalServico = cfg ? calcularMatEngenheiro(cfg) : 0
   const totalGeral = Object.values(configs).reduce((s, c) => s + calcularMatEngenheiro(c), 0)
+  const impactoFallbackServico = cfg
+    ? cfg.insumos.reduce((sum, ins) => {
+        if (!isFallbackSP(ins.codigoSINAPI)) return sum
+        return sum + ins.coeficiente * ins.valorUnitario * cfg.quantidade
+      }, 0)
+    : 0
+  const impactoFallbackGeral = Object.values(configs).reduce((sum, c) => {
+    return sum + c.insumos.reduce((local, ins) => {
+      const fallback = modoWizard
+        ? !!engData?.consultasSINAPI[c.servicoId]?.insumos.find(i => i.codigo === ins.codigoSINAPI && i.isFallbackSP)
+        : isFallbackSP(ins.codigoSINAPI)
+      if (!fallback) return local
+      return local + ins.coeficiente * ins.valorUnitario * c.quantidade
+    }, 0)
+  }, 0)
+  const percFallbackGeral = totalGeral > 0 ? (impactoFallbackGeral / totalGeral) * 100 : 0
 
   const salvos = modoWizard ? itensLista.filter(i => !!engData!.calculosMat[i.id]).length : 0
 
@@ -226,12 +250,22 @@ export default function CalculadoraMateriais({ data, onUpdate, orcamentoId, engD
             {cfg.insumos.length < 5 && (
               <button onClick={() => addInsumo(selected)} className="btn btn-ghost btn-xs mt-2">+ Adicionar insumo</button>
             )}
+            {impactoFallbackServico > 0 && (
+              <div className="mt-3 alert alert-warning text-xs py-2">
+                Impacto de fallback SP neste serviço: {formatCurrency(impactoFallbackServico)}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       <div className="card bg-base-100 shadow">
         <div className="card-body p-4">
+          {impactoFallbackGeral > 0 && (
+            <div className="alert alert-warning text-xs mb-3 py-2">
+              Exposição total a fallback SP em materiais: {formatCurrency(impactoFallbackGeral)} ({percFallbackGeral.toFixed(1)}% do custo de materiais)
+            </div>
+          )}
           <div className="flex gap-4 text-xs text-base-content/50 mb-3 flex-wrap">
             {itensLista.map(item => {
               const c = configs[item.id]

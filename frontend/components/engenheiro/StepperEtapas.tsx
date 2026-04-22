@@ -1,6 +1,6 @@
 'use client'
 
-import { MdCheckCircle, MdRadioButtonUnchecked, MdLock, MdWarning } from 'react-icons/md'
+import { MdCheckCircle, MdLock, MdWarning } from 'react-icons/md'
 
 type Etapa = 'E2' | 'E3' | 'E4' | 'E5' | 'E6'
 
@@ -29,13 +29,15 @@ const PREREQ: Record<Etapa, Etapa | null> = {
 }
 
 export default function StepperEtapas({ etapaAtual, etapasConcluidas, onClickEtapa, parametrosCompletos, etapaVisivel }: Props) {
+  const etapaCorrente = etapaAtual === 'ENTREGUE' ? 'E6' : etapaAtual
+
   function getEstado(etapa: Etapa): 'concluida' | 'ativa' | 'pendente' | 'bloqueada' {
     if (!parametrosCompletos) return 'bloqueada'
     if (etapasConcluidas.includes(etapa)) return 'concluida'
-    if (etapaAtual === etapa) return 'ativa'
+    if (etapaCorrente === etapa) return 'ativa'
     const prereq = PREREQ[etapa]
     if (prereq && !etapasConcluidas.includes(prereq)) return 'bloqueada'
-    return 'pendente'
+    return 'bloqueada'
   }
 
   return (

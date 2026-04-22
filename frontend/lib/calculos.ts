@@ -108,10 +108,13 @@ export function calcularTotais(orcamento: Orcamento): OrcamentoTotais {
   }
 }
 
-const VH_QUAL_COM = 2664.75 * 2.6013 / (22 * 8)
-const VH_SERV_COM = 2189.97 * 2.6013 / (22 * 8)
-const VH_QUAL_SEM = 2664.75 / (22 * 8)
-const VH_SERV_SEM = 2189.97 / (22 * 8)
+function getCustosHora(params: GlobalParams) {
+  const vhQualSem = params.salarioQualificado / (22 * 8)
+  const vhServSem = params.salarioServente / (22 * 8)
+  const vhQualCom = vhQualSem * params.fatorEncargos
+  const vhServCom = vhServSem * params.fatorEncargos
+  return { vhQualSem, vhServSem, vhQualCom, vhServCom }
+}
 
 function buildCenarioEng(
   cenario: CenarioDetalhadoMO['cenario'],
@@ -121,6 +124,8 @@ function buildCenarioEng(
   propAjudante: number,
   prazoRequerido: number,
   cSINAPI: number,
+  vhQualSem: number,
+  vhServCom: number,
 ): CenarioDetalhadoMO {
   const prod = prodBasica * mult
   const hhP = Q / prod
@@ -128,26 +133,27 @@ function buildCenarioEng(
   const nP = Math.max(1, Math.ceil(hhP / (prazoRequerido * 8)))
   const prazoEf = hhP / (nP * 8)
   const nA = Math.max(0, Math.ceil(hhA / (prazoEf * 8)))
-  const custoBase = hhP * VH_QUAL_SEM * 1.3 + hhA * VH_SERV_COM
+  const custoBase = hhP * vhQualSem * 1.3 + hhA * vhServCom
   const bonusCenario = Math.max(0, cSINAPI - custoBase) * 0.64
   return { cenario, produtividade: prod, hhProfissional: hhP, hhAjudante: hhA, profissionaisNecessarios: nP, ajudantesNecessarios: nA, prazoEfetivoDias: prazoEf, custoBase, bonusCenario }
 }
 
-export function calcularMOEngenheiro(config: CalculoMOConfig): CalculoMOResultado {
+export function calcularMOEngenheiro(config: CalculoMOConfig, params: GlobalParams): CalculoMOResultado {
   const { quantidade: Q, produtividadeBasica, proporcaoAjudante, prazoRequerido } = config
+  const { vhQualSem, vhServCom, vhQualCom } = getCustosHora(params)
   const hhProfSin = Q / produtividadeBasica
   const hhAjudSin = hhProfSin * proporcaoAjudante
-  const cSINAPI = hhProfSin * VH_QUAL_COM + hhAjudSin * VH_SERV_COM
-  const mensalista = buildCenarioEng('Mensalista', Q, produtividadeBasica, 0.80, proporcaoAjudante, prazoRequerido, cSINAPI)
-  const otima = buildCenarioEng('Ótima', Q, produtividadeBasica, 1.25, proporcaoAjudante, prazoRequerido, cSINAPI)
-  const prazo = buildCenarioEng('Prazo', Q, produtividadeBasica, 1.00, proporcaoAjudante, prazoRequerido, cSINAPI)
+  const cSINAPI = hhProfSin * vhQualCom + hhAjudSin * vhServCom
+  const mensalista = buildCenarioEng('Mensalista', Q, produtividadeBasica, 0.80, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhServCom)
+  const otima = buildCenarioEng('Ótima', Q, produtividadeBasica, 1.25, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhServCom)
+  const prazo = buildCenarioEng('Prazo', Q, produtividadeBasica, 1.00, proporcaoAjudante, prazoRequerido, cSINAPI, vhQualSem, vhServCom)
   const economia = Math.max(0, cSINAPI - otima.custoBase)
   const valorBonusProducaoMEI = 0.64 * economia
   const valorBonusProducaoCLT = 0.56 * economia
-  const custoFinalMEI = otima.hhProfissional * VH_QUAL_SEM * 1.3 + otima.hhAjudante * VH_SERV_COM + valorBonusProducaoMEI
-  const custoFinalCLT = otima.hhProfissional * VH_QUAL_COM + otima.hhAjudante * VH_SERV_COM + valorBonusProducaoCLT
-  const salarioEsperadoMEI = 2664.75 * 1.3
-  const salarioEsperadoCLT = 2664.75 * 2.6013
+  const custoFinalMEI = otima.hhProfissional * vhQualSem * 1.3 + otima.hhAjudante * vhServCom + valorBonusProducaoMEI
+  const custoFinalCLT = otima.hhProfissional * vhQualCom + otima.hhAjudante * vhServCom + valorBonusProducaoCLT
+  const salarioEsperadoMEI = params.salarioQualificado * 1.3
+  const salarioEsperadoCLT = params.salarioQualificado * params.fatorEncargos
   return {
     configId: config.servicoId,
     mensalista, otima, prazo,
@@ -202,7 +208,10 @@ export function consolidarEngenheiro(
   }
 }
 
-export { VH_QUAL_COM, VH_SERV_COM, VH_QUAL_SEM, VH_SERV_SEM }
+export const VH_QUAL_COM = GLOBAL_PARAMS.salarioQualificado * GLOBAL_PARAMS.fatorEncargos / (22 * 8)
+export const VH_SERV_COM = GLOBAL_PARAMS.salarioServente * GLOBAL_PARAMS.fatorEncargos / (22 * 8)
+export const VH_QUAL_SEM = GLOBAL_PARAMS.salarioQualificado / (22 * 8)
+export const VH_SERV_SEM = GLOBAL_PARAMS.salarioServente / (22 * 8)
 
 export function calcularParcelaPrice(
   valorFinanciado: number,

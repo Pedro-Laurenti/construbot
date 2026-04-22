@@ -129,6 +129,7 @@ export interface Orcamento {
   saida?: SaidaCliente
   faixaCotacao?: FaixaCotacao
   logEtapas?: Array<{ etapa: string; concluidaEm: string }>
+  motivoReabertura?: string
 }
 
 export interface Cliente {
@@ -532,6 +533,29 @@ export interface CenarioMOServico {
   resultado: CalculoMOResultado
   cenarioEscolhido: 'Mensalista' | 'Ótima' | 'Prazo'
   modalidade: ContratoModalidade
+  salvoEm?: string
+}
+
+export type EtapaWizard = 'E2' | 'E3' | 'E4' | 'E5' | 'E6'
+
+export interface StatusValidacaoEtapa {
+  status: 'ok' | 'erro' | 'aviso'
+  erros: string[]
+  avisos: string[]
+}
+
+export interface LogEtapaEngenharia {
+  etapa: EtapaWizard
+  data: string
+  usuario: string
+  motivo: string
+}
+
+export interface OrcamentoWizardUIState {
+  etapaVisivel: EtapaWizard
+  servicoSelecionadoE3?: string
+  servicoSelecionadoE4?: string
+  servicoSelecionadoE5?: string
 }
 
 export interface OrcamentoEngenheiro {
@@ -539,12 +563,20 @@ export interface OrcamentoEngenheiro {
   etapaAtual: 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'ENTREGUE'
   etapasConcluidas: Array<'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6'>
   logEtapas?: Array<{ etapa: string; concluidaEm: string }>
+  logEtapasDetalhado?: LogEtapaEngenharia[]
   quantitativos: QuantitativoServico[]
   consultasSINAPI: Record<string, ConsultaSINAPIServico>
   calculosMO: Record<string, CenarioMOServico>
   calculosMat: Record<string, CalculoMatConfig>
   fasesObra?: FaseObra[]
   precificacao?: PrecificacaoFinalResult
+  statusValidacaoEtapa?: Partial<Record<EtapaWizard, StatusValidacaoEtapa>>
+  checksumsEtapas?: Partial<Record<EtapaWizard, string>>
+  snapshotParametrosGlobais?: GlobalParams
+  versaoParametrosE2?: string
+  versaoParametrosE4?: string
+  versaoParametrosE6?: string
+  uiState?: OrcamentoWizardUIState
 }
 
 export interface EngineerData {

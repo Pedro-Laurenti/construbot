@@ -28,7 +28,11 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
   const [codigo, setCodigo] = useState('')
   const [resultado, setResultado] = useState<{ composicao: typeof COMPOSICOES_ANALITICAS[0]; itens: ResultItem[]; subtotal: number } | null>(null)
   const [erro, setErro] = useState('')
-  const [servicoIdx, setServicoIdx] = useState(0)
+  const [servicoIdx, setServicoIdx] = useState(() => {
+    if (!modoWizard || !engData?.uiState?.servicoSelecionadoE3) return 0
+    const idx = engData.quantitativos.findIndex(s => s.id === engData.uiState?.servicoSelecionadoE3)
+    return idx >= 0 ? idx : 0
+  })
 
   const VH_COM = 2664.75 * 2.6013 / (22 * 8)
   const VH_SEM = 2664.75 / (22 * 8)
@@ -38,10 +42,23 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
 
   useEffect(() => {
     if (!modoWizard || servicos.length === 0) return
+    const fromUi = engData!.uiState?.servicoSelecionadoE3
+    if (fromUi) {
+      const idxFromUi = servicos.findIndex(s => s.id === fromUi)
+      if (idxFromUi >= 0) {
+        setServicoIdx(idxFromUi)
+        return
+      }
+    }
     const primeiroPendente = servicos.findIndex(s => !engData!.consultasSINAPI[s.id])
     const idx = primeiroPendente >= 0 ? primeiroPendente : 0
     setServicoIdx(idx)
   }, [])
+
+  useEffect(() => {
+    if (!modoWizard || !onUpdateEng || !servicoAtual) return
+    onUpdateEng({ uiState: { ...(engData?.uiState ?? { etapaVisivel: 'E3' }), servicoSelecionadoE3: servicoAtual.id } })
+  }, [servicoAtual?.id])
 
   useEffect(() => {
     if (servicoAtual?.composicaoBasica) {
@@ -122,6 +139,13 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
   const servicoAtualQtd = servicoAtual?.quantidade ?? 1
   const servicoAtualUN = servicoAtual?.unidade ?? ''
   const subtotalUnitario = resultado ? resultado.subtotal / servicoAtualQtd : 0
+  const fallbackItensAtual = resultado?.itens.filter(i => i.isFallbackSP && i.tipoItem === 'INSUMO') ?? []
+  const impactoFallbackServico = fallbackItensAtual.reduce((sum, i) => sum + i.coeficiente * i.custoUnitario * servicoAtualQtd, 0)
+  const totalServicoAtual = (resultado?.subtotal ?? 0) * servicoAtualQtd
+  const percFallbackServico = totalServicoAtual > 0 ? (impactoFallbackServico / totalServicoAtual) * 100 : 0
+  const impactoFallbackOrcamento = modoWizard
+    ? Object.values(engData!.consultasSINAPI).reduce((sum, consulta) => sum + consulta.insumos.filter(i => i.isFallbackSP).reduce((s, i) => s + i.total, 0), 0)
+    : 0
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
@@ -187,6 +211,16 @@ export default function ConsultaComposicao({ uf: defaultUf, orcamentoId, engData
       {semPreco.length > 0 && (
         <div className="alert alert-error text-sm">
           {semPreco.length} insumo(s) SEM PREÇO: {semPreco.map(i => i.descricao).join(', ')}. Defina um preço antes de avançar.
+        </div>
+      )}
+
+      {hasFallback && (
+        <div className="card bg-warning/10 border border-warning/40">
+          <div className="card-body p-3 text-xs">
+            <p className="font-semibold text-warning">Impacto financeiro do fallback SP</p>
+            <p>Serviço atual com fallback: {formatCurrency(impactoFallbackServico)} ({percFallbackServico.toFixed(1)}% do custo de insumos do serviço)</p>
+            {modoWizard && <p>Acumulado no orçamento já confirmado em E3: {formatCurrency(impactoFallbackOrcamento)}</p>}
+          </div>
         </div>
       )}
 

@@ -68,6 +68,21 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
   const [fasesObra, setFasesObra] = useState<FaseObra[]>(engData?.fasesObra ?? FASES_OBRA_PADRAO)
 
+  function getDistribuicaoMensal(): number[] {
+    const meses = Math.max(1, tempoMeses)
+    const distribuicao = Array.from({ length: meses }, () => 0)
+    fasesObra.forEach(fase => {
+      const inicio = Math.max(1, fase.mesInicio)
+      const fim = Math.min(meses, fase.mesFim)
+      const duracao = Math.max(1, fim - inicio + 1)
+      const parcelaMes = fase.percentualCusto / duracao
+      for (let m = inicio; m <= fim; m++) distribuicao[m - 1] += parcelaMes
+    })
+    const soma = distribuicao.reduce((s, v) => s + v, 0)
+    if (soma <= 0) return Array.from({ length: meses }, () => 1 / meses)
+    return distribuicao.map(v => v / soma)
+  }
+
   const servicoIds = engData?.quantitativos.map(q => q.id) ?? []
   const rows = servicoIds.map(sid => {
     const mo = modoWizard ? engData!.calculosMO[sid]?.resultado : data.calculoMOResults[sid]
@@ -96,8 +111,9 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
   const custoDiretoPorM2CLT = custoDiretoCLT / areaConstruida
 
   const incc = data.inccMensal
-  const fluxoMEI = calcularFluxoCaixaINCC(custoDiretoMEI, tempoMeses, incc)
-  const fluxoCLT = calcularFluxoCaixaINCC(custoDiretoCLT, tempoMeses, incc)
+  const distribuicaoMensal = getDistribuicaoMensal()
+  const fluxoMEI = calcularFluxoCaixaINCC(custoDiretoMEI, tempoMeses, incc, distribuicaoMensal)
+  const fluxoCLT = calcularFluxoCaixaINCC(custoDiretoCLT, tempoMeses, incc, distribuicaoMensal)
   const custoDiretoComInccMEI = fluxoMEI.totalCorrigido
   const custoDiretoComInccCLT = fluxoCLT.totalCorrigido
 
@@ -136,7 +152,16 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
       o.id === orcamento.id ? { ...o, status: 'entregue' as const, saida } : o
     )
     saveStorage({ ...session, orcamentos: updatedOrcamentos })
-    const updatedEng = { ...data.orcamentosEngenheiro, [orcamento.id]: { ...engData, etapaAtual: 'ENTREGUE' as const } }
+    const now = new Date().toISOString()
+    const updatedEng = {
+      ...data.orcamentosEngenheiro,
+      [orcamento.id]: {
+        ...engData,
+        etapaAtual: 'ENTREGUE' as const,
+        logEtapas: [...(engData.logEtapas ?? []), { etapa: 'E6', concluidaEm: now }],
+        logEtapasDetalhado: [...(engData.logEtapasDetalhado ?? []), { etapa: 'E6', data: now, usuario: 'engenheiro_local', motivo: 'entrega_cliente' }],
+      },
+    }
     onUpdate({ orcamentosEngenheiro: updatedEng })
     if (onUpdateEng) onUpdateEng({ etapaAtual: 'ENTREGUE' })
     setConfirmModal(false)
@@ -145,6 +170,14 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
 
   const jaEntregue = engData?.etapaAtual === 'ENTREGUE'
   const showContent = (modoWizard || !!selectedOrcId) && rows.length > 0
+  const checklistEntrega = {
+    custosConsolidados: rows.length > 0,
+    materiaisSalvos: rows.every(r => r.custoMat > 0),
+    maoObraSalva: rows.every(r => r.custoMoMEI > 0 || r.custoMoCLT > 0),
+    cronogramaValido: fasesObra.length > 0 && fasesObra.every(f => f.percentualCusto > 0),
+    saidaClienteValida: aaMEI > 0 && parcelaMEI > 0 && (tabelaAportes?.length ?? 0) > 0,
+  }
+  const prontoParaEntrega = Object.values(checklistEntrega).every(Boolean)
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl">
@@ -374,13 +407,18 @@ export default function PrecificacaoFinal({ data, onUpdate, orcamentos, orcament
                 <button onClick={salvarFases} className="btn btn-ghost btn-sm">Salvar rascunho</button>
                 <button
                   onClick={() => setConfirmModal(true)}
-                  disabled={jaEntregue}
+                  disabled={jaEntregue || !prontoParaEntrega}
                   className="btn btn-primary btn-sm gap-2"
                 >
                   <MdSend size={16} />
                   {jaEntregue ? 'Entregue' : 'Entregar ao cliente'}
                 </button>
               </div>
+              {!prontoParaEntrega && (
+                <p className="text-xs text-warning text-right mt-1">
+                  Checklist pendente para entrega: {!checklistEntrega.custosConsolidados ? 'consolidação' : ''}{!checklistEntrega.materiaisSalvos ? ' materiais' : ''}{!checklistEntrega.maoObraSalva ? ' mão de obra' : ''}{!checklistEntrega.cronogramaValido ? ' cronograma' : ''}{!checklistEntrega.saidaClienteValida ? ' saída cliente' : ''}
+                </p>
+              )}
               {jaEntregue && <p className="text-xs text-success text-right mt-1">Orçamento já entregue ao cliente.</p>}
             </div>
           </div>

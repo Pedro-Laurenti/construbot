@@ -17,6 +17,8 @@ interface Props {
 export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWizard }: Props) {
   const { orcamentoReviews } = data
   const [selected, setSelected] = useState<Orcamento | null>(null)
+  const [reabrirSelecionado, setReabrirSelecionado] = useState<Orcamento | null>(null)
+  const [motivoReabertura, setMotivoReabertura] = useState('')
   const [obs, setObs] = useState('')
 
   function getReview(id: string): OrcamentoReviewStatus {
@@ -30,21 +32,40 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
   }
 
   function reabrirOrcamento(orc: Orcamento) {
+    if (!motivoReabertura.trim()) return
     const session = loadStorage()
     const orcs = session.orcamentos.map(o =>
-      o.id === orc.id ? { ...o, status: 'em_calculo' as const } : o
+      o.id === orc.id ? { ...o, status: 'em_calculo' as const, motivoReabertura: motivoReabertura.trim() } : o
     )
     saveStorage({ ...session, orcamentos: orcs })
+    const eng = data.orcamentosEngenheiro[orc.id]
+    if (eng) {
+      onUpdate({
+        orcamentosEngenheiro: {
+          ...data.orcamentosEngenheiro,
+          [orc.id]: {
+            ...eng,
+            etapaAtual: eng.etapaAtual === 'ENTREGUE' ? 'E6' : eng.etapaAtual,
+            logEtapasDetalhado: [
+              ...(eng.logEtapasDetalhado ?? []),
+              { etapa: 'E6', data: new Date().toISOString(), usuario: 'engenheiro_local', motivo: `reabertura:${motivoReabertura.trim()}` },
+            ],
+          },
+        },
+      })
+    }
+    setMotivoReabertura('')
+    setReabrirSelecionado(null)
     onEnterWizard({ ...orc, status: 'em_calculo' })
   }
 
   const ORC_STATUS_BADGE: Record<OrcamentoStatus, { className: string; label: string }> = {
     aguardando_engenheiro: { className: 'badge-warning', label: 'Aguardando' },
-    em_calculo: { className: 'badge-info', label: 'Em análise' },
-    calculado: { className: 'badge-success', label: 'Calculado' },
-    entregue: { className: 'badge-accent', label: 'Entregue' },
-    rascunho: { className: 'badge-ghost', label: 'Rascunho' },
-    enviado: { className: 'badge-info', label: 'Enviado' },
+    em_calculo: { className: 'badge-info', label: 'Em cálculo' },
+    entregue: { className: 'badge-success', label: 'Entregue' },
+    calculado: { className: 'badge-ghost', label: 'Fora do fluxo' },
+    rascunho: { className: 'badge-ghost', label: 'Fora do fluxo' },
+    enviado: { className: 'badge-ghost', label: 'Fora do fluxo' },
   }
 
   return (
@@ -92,7 +113,7 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
                       )}
                       {orc.status === 'entregue' && (
                         <button
-                          onClick={() => reabrirOrcamento(orc)}
+                          onClick={() => setReabrirSelecionado(orc)}
                           className="btn btn-ghost btn-xs text-warning gap-1"
                         >
                           <MdLockOpen size={14} /> Reabrir
@@ -128,6 +149,26 @@ export default function GestaoOrcamentos({ data, onUpdate, orcamentos, onEnterWi
             <div className="flex gap-2 justify-end">
               <button onClick={() => updateReview(selected.id, 'rejeitado')} className="btn btn-error btn-sm gap-1"><MdCancel size={16} /> Rejeitar</button>
               <button onClick={() => updateReview(selected.id, 'aprovado')} className="btn btn-success btn-sm gap-1"><MdCheckCircle size={16} /> Aprovar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reabrirSelecionado && (
+        <div className="card bg-base-100 shadow">
+          <div className="card-body p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-semibold">Reabrir orçamento — {reabrirSelecionado.id.slice(0, 16)}…</p>
+              <button onClick={() => setReabrirSelecionado(null)} className="btn btn-ghost btn-xs">Fechar</button>
+            </div>
+            <fieldset className="fieldset mb-3">
+              <legend className="fieldset-legend text-xs">Motivo da reabertura</legend>
+              <textarea value={motivoReabertura} onChange={e => setMotivoReabertura(e.target.value)} className="textarea w-full" rows={3} placeholder="Explique por que o orçamento está sendo reaberto" />
+            </fieldset>
+            <div className="flex justify-end">
+              <button onClick={() => reabrirOrcamento(reabrirSelecionado)} className="btn btn-warning btn-sm" disabled={!motivoReabertura.trim()}>
+                Confirmar reabertura
+              </button>
             </div>
           </div>
         </div>

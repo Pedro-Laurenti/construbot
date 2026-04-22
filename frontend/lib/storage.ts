@@ -94,12 +94,95 @@ function defaultEngineerData(): EngineerData {
   }
 }
 
+function buildChecksum(value: unknown): string {
+  const raw = JSON.stringify(value ?? null)
+  let hash = 0
+  for (let i = 0; i < raw.length; i++) {
+    hash = (hash * 31 + raw.charCodeAt(i)) >>> 0
+  }
+  return `v1-${hash.toString(16)}`
+}
+
+function normalizeEngineerBudget(raw: any, orcamentoId: string, defaults: EngineerData) {
+  const quantitativos = Array.isArray(raw?.quantitativos) ? raw.quantitativos : []
+  const consultasSINAPI = raw?.consultasSINAPI && typeof raw.consultasSINAPI === 'object' ? raw.consultasSINAPI : {}
+  const calculosMO = raw?.calculosMO && typeof raw.calculosMO === 'object' ? raw.calculosMO : {}
+  const calculosMat = raw?.calculosMat && typeof raw.calculosMat === 'object' ? raw.calculosMat : {}
+  const etapaAtual = raw?.etapaAtual ?? 'E2'
+  const etapasConcluidas = Array.isArray(raw?.etapasConcluidas) ? raw.etapasConcluidas : []
+  const snapshotParametros = raw?.snapshotParametrosGlobais ?? defaults.globalParams
+
+  return {
+    orcamentoClienteId: orcamentoId,
+    etapaAtual,
+    etapasConcluidas,
+    logEtapas: Array.isArray(raw?.logEtapas) ? raw.logEtapas : [],
+    logEtapasDetalhado: Array.isArray(raw?.logEtapasDetalhado) ? raw.logEtapasDetalhado : [],
+    quantitativos,
+    consultasSINAPI,
+    calculosMO,
+    calculosMat,
+    fasesObra: Array.isArray(raw?.fasesObra) ? raw.fasesObra : undefined,
+    precificacao: raw?.precificacao,
+    statusValidacaoEtapa: raw?.statusValidacaoEtapa ?? {},
+    checksumsEtapas: raw?.checksumsEtapas ?? {
+      E2: buildChecksum(quantitativos),
+      E3: buildChecksum(consultasSINAPI),
+      E4: buildChecksum(calculosMO),
+      E5: buildChecksum(calculosMat),
+    },
+    snapshotParametrosGlobais: snapshotParametros,
+    versaoParametrosE2: raw?.versaoParametrosE2 ?? new Date(0).toISOString(),
+    versaoParametrosE4: raw?.versaoParametrosE4,
+    versaoParametrosE6: raw?.versaoParametrosE6,
+    uiState: {
+      etapaVisivel: raw?.uiState?.etapaVisivel ?? (etapaAtual === 'ENTREGUE' ? 'E6' : etapaAtual),
+      servicoSelecionadoE3: raw?.uiState?.servicoSelecionadoE3,
+      servicoSelecionadoE4: raw?.uiState?.servicoSelecionadoE4,
+      servicoSelecionadoE5: raw?.uiState?.servicoSelecionadoE5,
+    },
+  }
+}
+
+function migrateEngineerData(raw: any): EngineerData {
+  const base = defaultEngineerData()
+  const merged = { ...base, ...(raw ?? {}) } as EngineerData
+  const normalizedByBudget: Record<string, any> = {}
+
+  const existing = merged.orcamentosEngenheiro ?? {}
+  Object.keys(existing).forEach((orcamentoId) => {
+    normalizedByBudget[orcamentoId] = normalizeEngineerBudget(existing[orcamentoId], orcamentoId, merged)
+  })
+
+  const legacyCalcMO = merged.calculoMOResults ?? {}
+  const legacyCalcMat = merged.calculoMatConfigs ?? {}
+  if (Object.keys(normalizedByBudget).length === 0 && (Object.keys(legacyCalcMO).length > 0 || Object.keys(legacyCalcMat).length > 0)) {
+    normalizedByBudget.legado_sem_orcamento = normalizeEngineerBudget({
+      etapaAtual: 'E4',
+      etapasConcluidas: ['E2', 'E3'],
+      calculosMO: Object.fromEntries(Object.entries(legacyCalcMO).map(([id, resultado]) => [id, {
+        config: merged.calculoMOConfigs[id],
+        resultado,
+        cenarioEscolhido: 'Ótima',
+        modalidade: 'MEI',
+      }])),
+      calculosMat: legacyCalcMat,
+      uiState: { etapaVisivel: 'E4' },
+    }, 'legado_sem_orcamento', merged)
+  }
+
+  return {
+    ...merged,
+    orcamentosEngenheiro: normalizedByBudget,
+  }
+}
+
 export function loadEngineerData(): EngineerData {
   if (typeof window === 'undefined') return defaultEngineerData()
   try {
     const raw = localStorage.getItem(ENGINEER_KEY)
     if (!raw) return defaultEngineerData()
-    return { ...defaultEngineerData(), ...JSON.parse(raw) } as EngineerData
+    return migrateEngineerData(JSON.parse(raw))
   } catch {
     return defaultEngineerData()
   }

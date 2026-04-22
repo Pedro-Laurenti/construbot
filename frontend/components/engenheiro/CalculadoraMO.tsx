@@ -134,7 +134,15 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
     return base
   })
 
-  const [selected, setSelected] = useState<string | null>(itensLista[0]?.id ?? null)
+  const [selected, setSelected] = useState<string | null>(() => {
+    if (modoWizard) return engData?.uiState?.servicoSelecionadoE4 ?? itensLista[0]?.id ?? null
+    return itensLista[0]?.id ?? null
+  })
+
+  useEffect(() => {
+    if (!modoWizard || !onUpdateEng || !selected) return
+    onUpdateEng({ uiState: { ...(engData?.uiState ?? { etapaVisivel: 'E4' }), servicoSelecionadoE4: selected } })
+  }, [selected])
 
   useEffect(() => {
     if (!selected) return
@@ -150,7 +158,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
   function calcular(id: string) {
     const cfg = configs[id]
     if (!cfg || cfg.quantidade <= 0 || cfg.produtividadeBasica <= 0) return
-    const resultado = calcularMOEngenheiro(cfg)
+    const resultado = calcularMOEngenheiro(cfg, data.globalParams)
     setResultados(prev => ({ ...prev, [id]: resultado }))
     if (modoWizard && onUpdateEng) {
       const cenario: CenarioMOServico = {
@@ -158,6 +166,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
         resultado,
         cenarioEscolhido: cenarioSel[id] ?? 'Ótima',
         modalidade: modalidades[id] ?? 'MEI',
+        salvoEm: new Date().toISOString(),
       }
       onUpdateEng({ calculosMO: { ...engData!.calculosMO, [id]: cenario } })
     } else {
@@ -174,6 +183,7 @@ export default function CalculadoraMO({ data, onUpdate, orcamentoId, engData, on
       resultado: res,
       cenarioEscolhido: cenarioSel[id] ?? 'Ótima',
       modalidade: modalidades[id] ?? 'MEI',
+      salvoEm: new Date().toISOString(),
     }
     const updatedMO = { ...engData!.calculosMO, [id]: cenario }
     onUpdateEng({ calculosMO: updatedMO })
