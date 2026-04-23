@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/contexts/AuthContext";
 
 export const metadata: Metadata = {
   title: "ConstruBot",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
       <html lang="pt-BR" data-theme="mydark">
-      <body className="h-screen overflow-hidden bg-base-100">{children}</body>
+      <body className="h-screen overflow-hidden bg-base-100">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

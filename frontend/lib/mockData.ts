@@ -255,22 +255,6 @@ export const SEED_ORCAMENTO: Orcamento = {
   ],
 }
 
-export const ENGINEER_PASSWORD = 'construbot2026'
-
-export const SEED_CONTA_MOCK: Cliente = {
-  id: 'cli-demo-maria',
-  nome: 'Maria Silva',
-  telefone: '(11) 98765-4321',
-  email: 'maria@construbot.com',
-  dataCadastro: '2026-01-10',
-  senha: 'demo1234',
-}
-
-export const GOOGLE_MOCK_USER = {
-  nome: 'Pedro Laurenti',
-  email: 'pedro.laurenti@gmail.com',
-}
-
 export const DEFAULT_GRUPOS_ENCARGOS: GruposEncargos = {
   grupoA: [
     { label: 'INSS', valor: 10.00 },

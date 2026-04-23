@@ -1,14 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MdSmartToy, MdCheck, MdChevronRight, MdEngineering, MdApartment, MdArrowBack } from 'react-icons/md'
+import { MdSmartToy, MdCheck, MdChevronRight, MdEngineering, MdApartment } from 'react-icons/md'
 import { formatNationalPhone } from '@/lib/formatters'
-import { ENGINEER_PASSWORD, GOOGLE_MOCK_USER } from '@/lib/mockData'
-import { findConta } from '@/lib/storage'
+import { useAuthContext } from '@/lib/contexts/AuthContext'
 import { Bubble, botMsg, userMsg, TypingBubble, useBotTyping, type ChatMsg } from './OrcamentoChatFlow'
 import type { AppSession, Cliente } from '@/types'
 
-type Phase = 'START' | 'NOME' | 'TELEFONE' | 'EMAIL' | 'SENHA' | 'CONFIRMAR' | 'ENGENHEIRO_SENHA' | 'LOGIN_EMAIL' | 'LOGIN_SENHA' | 'LOGIN_NAO_ENCONTRADO' | 'CONCLUIDO'
+type Phase = 'START' | 'NOME' | 'TELEFONE' | 'EMAIL' | 'SENHA' | 'CONFIRMAR' | 'CONCLUIDO'
 
 interface Props {
   mode: 'cadastro' | 'edicao'
@@ -137,9 +136,6 @@ function LoginNaoEncontradoInput({ email, onCriarConta, onTentarOutro }: { email
       <button onClick={onCriarConta} className="btn btn-primary w-full">
         <MdCheck size={18} /> Criar nova conta com {email}
       </button>
-      <button onClick={onTentarOutro} className="btn btn-ghost w-full">
-        <MdArrowBack size={16} /> Tentar outro e-mail
-      </button>
     </div>
   )
 }
@@ -154,47 +150,16 @@ function ConfirmarInput({ onConfirm, labelAcao }: { onConfirm: () => void; label
   )
 }
 
-function SenhaEngenheiroInput({ onConfirm, onVoltar }: { onConfirm: (senha: string) => void; onVoltar: () => void }) {
-  const [senha, setSenha] = useState('')
-  return (
-    <div className="p-4 bg-base-300 flex-shrink-0 flex flex-col gap-2">
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">Senha de acesso</legend>
-        <input
-          type="password"
-          className="input w-full"
-          value={senha}
-          onChange={e => setSenha(e.target.value)}
-          placeholder="Digite a senha"
-          autoFocus
-          onKeyDown={e => { if (e.key === 'Enter' && senha.trim()) onConfirm(senha) }}
-        />
-      </fieldset>
-      <div className="flex gap-2">
-        <button onClick={onVoltar} className="btn btn-ghost flex-1">
-          <MdArrowBack size={16} /> Voltar
-        </button>
-        <button disabled={!senha.trim()} onClick={() => onConfirm(senha)} className="btn btn-primary flex-1">
-          <MdEngineering size={18} /> Entrar
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export default function OnboardingChatFlow({ mode, existing, onSubmit, onLoginExisting, onEngineerLogin, onCancel }: Props) {
   const ehEdicao = mode === 'edicao' && !!existing
+  const { login } = useAuthContext()
   const [phase, setPhase] = useState<Phase>(() => ehEdicao ? 'CONFIRMAR' : 'START')
   const [nome, setNome] = useState(existing?.nome ?? '')
   const [telefoneDigitos, setTelefoneDigitos] = useState(existing ? digitsOf(existing.telefone) : '')
   const [email, setEmail] = useState(existing?.email ?? '')
-  const [emailLoginTentado, setEmailLoginTentado] = useState('')
   const [viaGoogle, setViaGoogle] = useState(false)
   const [senha, setSenha] = useState('')
-  const [sessaoPendenteLogin, setSessaoPendenteLogin] = useState<AppSession | null>(null)
-  const [erroLoginSenha, setErroLoginSenha] = useState('')
   const [messages, setMessages] = useState<ChatMsg[]>([])
-  const [erroSenha, setErroSenha] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
 
   function addBot(texto: string) {
@@ -228,110 +193,12 @@ export default function OnboardingChatFlow({ mode, existing, onSubmit, onLoginEx
     )
   }, [])
 
-  function iniciarCadastro() {
-    setMessages([])
-    enviarBot('Olá! Eu sou a Ana, da ConstruBot. Vou te ajudar a criar seu cadastro em poucos passos — nada de formulários longos.')
-    enviarBot('Para começar, qual é o seu nome completo?', undefined, () => setPhase('NOME'))
-  }
-
-  function iniciarLogin() {
-    setMessages([])
-    enviarBot('Que bom te ver de volta! Me diga qual e-mail você usou no cadastro para eu recuperar sua conta.', undefined, () => setPhase('LOGIN_EMAIL'))
-  }
-
-  function entrarComGoogle() {
-    const { nome: nomeGoogle, email: emailGoogle } = GOOGLE_MOCK_USER
-    const sessao = findConta(emailGoogle)
-    // Se a conta ja existir para o e-mail retornado pelo Google, pulamos o onboarding e restauramos direto.
-    if (sessao && sessao.cliente && onLoginExisting) {
-      setMessages([])
-      enviarBot(`Encontrei sua conta Google! Bem-vindo de volta, ${sessao.cliente.nome.split(' ')[0]}.`, undefined, () => {
-        setPhase('CONCLUIDO')
-        onLoginExisting(sessao)
-      })
-      return
+  async function entrarComMicrosoft() {
+    try {
+      await login()
+    } catch (error) {
+      console.error('Erro no login:', error)
     }
-    setNome(nomeGoogle)
-    setEmail(emailGoogle)
-    setViaGoogle(true)
-    setMessages([
-      userMsg(`Meu nome é ${nomeGoogle}`, 'nome'),
-      userMsg(`E-mail: ${emailGoogle}`, 'email'),
-    ])
-    enviarBot(`Oi, ${nomeGoogle.split(' ')[0]}! Peguei seu nome e e-mail do Google. Só falta o seu telefone para finalizar.`)
-    enviarBot('Qual é o seu telefone de contato?', undefined, () => setPhase('TELEFONE'))
-  }
-
-  function iniciarEngenheiro() {
-    setMessages([])
-    enviarBot('Entendi, você é engenheiro. Me diga a senha de acesso para entrar na área administrativa.', undefined, () => {
-      setErroSenha('')
-      setPhase('ENGENHEIRO_SENHA')
-    })
-  }
-
-  function voltarParaInicio() {
-    setMessages([])
-    setErroSenha('')
-    setEmailLoginTentado('')
-    setPhase('START')
-  }
-
-  function confirmarLoginEmail(valor: string) {
-    setEmailLoginTentado(valor)
-    addUser(`E-mail: ${valor}`)
-    const sessao = findConta(valor)
-    if (sessao && sessao.cliente && onLoginExisting) {
-      setSessaoPendenteLogin(sessao)
-      setErroLoginSenha('')
-      enviarBot(
-        `Encontrei sua conta, ${sessao.cliente.nome.split(' ')[0]}! Agora me diga sua senha para entrar.`,
-        undefined,
-        () => setPhase('LOGIN_SENHA')
-      )
-      return
-    }
-    enviarBot(
-      `Não encontrei nenhuma conta com o e-mail ${valor} neste dispositivo. Deseja criar uma nova conta com esse e-mail ou tentar outro?`,
-      undefined,
-      () => setPhase('LOGIN_NAO_ENCONTRADO')
-    )
-  }
-
-  function confirmarLoginSenha(valor: string) {
-    if (!sessaoPendenteLogin || !sessaoPendenteLogin.cliente) return
-    if (sessaoPendenteLogin.cliente.senha !== valor) {
-      setErroLoginSenha('Senha incorreta. Tente novamente.')
-      return
-    }
-    setErroLoginSenha('')
-    addUser(`Senha: ${'•'.repeat(Math.min(valor.length, 10))}`)
-    const sessao = sessaoPendenteLogin
-    enviarBot(`Tudo certo! Bem-vindo de volta, ${sessao.cliente!.nome.split(' ')[0]}.`, undefined, () => {
-      setPhase('CONCLUIDO')
-      if (onLoginExisting) onLoginExisting(sessao)
-    })
-  }
-
-  function voltarDoLoginSenha() {
-    setSessaoPendenteLogin(null)
-    setErroLoginSenha('')
-    enviarBot('Sem problema. Me diga qual outro e-mail você quer usar.', undefined, () => setPhase('LOGIN_EMAIL'))
-  }
-
-  function converterLoginEmCadastro() {
-    setEmail(emailLoginTentado)
-    addUser('Criar nova conta')
-    enviarBot(
-      `Perfeito! Vamos criar sua conta com o e-mail ${emailLoginTentado}. Para começar, qual é o seu nome completo?`,
-      undefined,
-      () => setPhase('NOME')
-    )
-  }
-
-  function tentarOutroEmail() {
-    setEmailLoginTentado('')
-    enviarBot('Sem problema. Me diga qual outro e-mail você quer usar.', undefined, () => setPhase('LOGIN_EMAIL'))
   }
 
   function confirmarNome(valor: string) {
@@ -410,13 +277,6 @@ export default function OnboardingChatFlow({ mode, existing, onSubmit, onLoginEx
     })
   }
 
-  function validarSenhaEngenheiro(senha: string) {
-    if (senha === ENGINEER_PASSWORD) {
-      onEngineerLogin?.()
-    } else {
-      setErroSenha('Senha incorreta. Tente novamente.')
-    }
-  }
 
   function tratarEdicao(chave: string) {
     if (chave === 'nome') setPhase('NOME')
@@ -433,17 +293,6 @@ export default function OnboardingChatFlow({ mode, existing, onSubmit, onLoginEx
     if (phase === 'EMAIL') return <EmailInput initial={email} onConfirm={confirmarEmail} labelBotao={labelContinuar} />
     if (phase === 'SENHA') return <SenhaInput initial={senha} onConfirm={confirmarSenha} labelBotao={labelContinuar} legenda="Crie uma senha" ajuda="Mínimo de 6 caracteres" minLen={6} />
     if (phase === 'CONFIRMAR') return <ConfirmarInput onConfirm={finalizar} labelAcao={ehEdicao ? 'Salvar alterações' : 'Confirmar cadastro'} />
-    if (phase === 'ENGENHEIRO_SENHA') return <SenhaEngenheiroInput onConfirm={validarSenhaEngenheiro} onVoltar={voltarParaInicio} />
-    if (phase === 'LOGIN_EMAIL') return <EmailInput initial={emailLoginTentado} onConfirm={confirmarLoginEmail} labelBotao="Continuar" legenda="E-mail do seu cadastro" />
-    if (phase === 'LOGIN_SENHA') return (
-      <div className="flex flex-col gap-2">
-        <SenhaInput initial="" onConfirm={confirmarLoginSenha} labelBotao="Entrar" legenda="Sua senha" erro={erroLoginSenha} minLen={1} />
-        <button onClick={voltarDoLoginSenha} className="btn btn-ghost btn-sm mx-4 mb-3 text-base-content/50">
-          <MdArrowBack size={14} /> Usar outro e-mail
-        </button>
-      </div>
-    )
-    if (phase === 'LOGIN_NAO_ENCONTRADO') return <LoginNaoEncontradoInput email={emailLoginTentado} onCriarConta={converterLoginEmCadastro} onTentarOutro={tentarOutroEmail} />
     return null
   }
 
@@ -471,40 +320,18 @@ export default function OnboardingChatFlow({ mode, existing, onSubmit, onLoginEx
             </p>
           </div>
           <div className="flex flex-col gap-3 w-full max-w-xs">
-            <button onClick={iniciarCadastro} className="btn btn-primary w-full">
-              Criar minha conta
+            <button
+              onClick={entrarComMicrosoft}
+              className="btn btn-primary w-full gap-2"
+            >
+              <svg viewBox="0 0 23 23" width="18" height="18" fill="currentColor">
+                <path d="M11 11V0H0v11h11zM23 0h-11v11h11V0zM11 23h11V12H11v11zM0 23h11V12H0v11z" />
+              </svg>
+              Entrar com Microsoft
             </button>
 
-            {onLoginExisting && (
-              <>
-                <div className="flex items-center gap-3 py-1">
-                  <span className="h-px bg-base-content/10 flex-1" />
-                  <span className="text-[10px] tracking-widest uppercase text-base-content/40">ou</span>
-                  <span className="h-px bg-base-content/10 flex-1" />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={iniciarLogin} className="btn btn-outline flex-1">
-                    Entrar
-                  </button>
-                  <button
-                    onClick={entrarComGoogle}
-                    aria-label="Continuar com Google"
-                    title="Continuar com Google"
-                    className="btn btn-outline btn-square bg-base-100 hover:bg-base-200 border-base-content/20"
-                  >
-                    <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
-                      <path fill="#4285F4" d="M47.5 24.6c0-1.6-.1-3.1-.4-4.6H24v8.7h13.1c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.4-10.6 7.4-17.3z" />
-                      <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.8 2.3-8 2.3-6.1 0-11.3-4.1-13.2-9.7H2.7v6.2C6.7 42.7 14.8 48 24 48z" />
-                      <path fill="#FBBC05" d="M10.8 28.8c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4v-6.2H2.7C1 17.1 0 20.4 0 24s1 6.9 2.7 10.2l8.1-5.4z" />
-                      <path fill="#EA4335" d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.7-6.7C35.9 2.4 30.5 0 24 0 14.8 0 6.7 5.3 2.7 13.8l8.1 5.4C12.7 13.6 17.9 9.5 24 9.5z" />
-                    </svg>
-                  </button>
-                </div>
-              </>
-            )}
-
             {onEngineerLogin && (
-              <button onClick={iniciarEngenheiro} className="btn btn-ghost btn-sm gap-2 text-base-content/40 hover:text-base-content mt-6">
+              <button onClick={onEngineerLogin} className="btn btn-ghost btn-sm gap-2 text-base-content/40 hover:text-base-content mt-6">
                 <MdEngineering size={16} /> Sou engenheiro
               </button>
             )}
@@ -515,7 +342,7 @@ export default function OnboardingChatFlow({ mode, existing, onSubmit, onLoginEx
     )
   }
 
-  const subtitulo = phase === 'ENGENHEIRO_SENHA' ? 'Acesso do engenheiro' : 'Criando sua conta'
+  const subtitulo = 'Criando sua conta'
 
   return (
     <div className={`${ehEdicao ? 'h-full' : 'min-h-screen'} flex flex-col bg-base-200`}>
@@ -541,9 +368,6 @@ export default function OnboardingChatFlow({ mode, existing, onSubmit, onLoginEx
           <Bubble key={m.id} msg={m} onEdit={phase !== 'CONCLUIDO' ? tratarEdicao : undefined} />
         ))}
         {digitando && <TypingBubble />}
-        {erroSenha && phase === 'ENGENHEIRO_SENHA' && (
-          <div className="alert alert-error text-sm py-2 mt-2">{erroSenha}</div>
-        )}
         <div ref={endRef} />
       </div>
 

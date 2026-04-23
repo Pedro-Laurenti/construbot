@@ -198,6 +198,73 @@ Para redeploys, basta rodar `./deploy.sh` novamente — o script detecta apps ex
    curl http://localhost:8000/api/storage-health
    ```
 
+### Azure AD (Autenticação)
+
+A autenticação é feita via **Azure AD (Entra ID)** com fluxo OAuth2 Authorization Code + PKCE:
+
+1. **Backend** valida tokens JWT (RS256) usando chaves públicas (JWKS) do Azure AD
+2. **Frontend** usa MSAL.js para obter tokens via popup
+3. Usuários são criados automaticamente na primeira autenticação (tabela Usuario)
+
+#### Configuração Inicial
+
+1. Execute o script de setup:
+   ```bash
+   cd scripts
+   chmod +x setup_azure_ad.sh
+   ./setup_azure_ad.sh
+   ```
+
+2. O script cria o app registration no Azure AD com:
+   - **App Roles**: cliente, engenheiro, admin
+   - **API Scope**: access_as_user
+   - **Redirect URIs**: localhost:3000 + produção
+
+3. Configure as variáveis de ambiente:
+   
+   Backend (`backend/.env`):
+   ```bash
+   CM_AZURE_AD_TENANT_ID=<tenant-id>
+   CM_AZURE_AD_CLIENT_ID=<client-id>
+   CM_AZURE_AD_AUDIENCE=api://<client-id>
+   ```
+   
+   Frontend (`frontend/.env.local`):
+   ```bash
+   NEXT_PUBLIC_AZURE_AD_CLIENT_ID=<client-id>
+   NEXT_PUBLIC_AZURE_AD_TENANT_ID=<tenant-id>
+   NEXT_PUBLIC_AZURE_AD_REDIRECT_URI=http://localhost:3000
+   ```
+
+#### Atribuir Roles aos Usuários
+
+1. Obter Object ID do usuário:
+   ```bash
+   az ad user show --id <email> --query id -o tsv
+   ```
+
+2. Atribuir role via Azure Portal:
+   - Acesse **Azure Active Directory > Enterprise Applications**
+   - Busque pelo app "construbot-app"
+   - Vá em **Users and groups > Add user/group**
+   - Selecione o usuário e a role (cliente, engenheiro ou admin)
+
+#### Verificar Autenticação
+
+1. Teste o endpoint `/api/auth/me` sem token:
+   ```bash
+   curl http://localhost:8000/api/auth/me
+   # Deve retornar 401 Unauthorized
+   ```
+
+2. Faça login no frontend e verifique no console do navegador se o token JWT está sendo obtido
+
+3. Teste com token válido:
+   ```bash
+   curl -H "Authorization: Bearer <token>" http://localhost:8000/api/auth/me
+   # Deve retornar dados do usuário
+   ```
+
 ### Produção
 
 Deploy via `./deploy.sh` configura automaticamente:
@@ -210,6 +277,76 @@ Verificar após deploy:
 ```bash
 curl https://construbot-api.azurewebsites.net/api/storage-health
 ```
+
+---
+
+## 🗃️ Desenvolvimento Local — Azure Table Storage
+
+### 1. Instalar Azurite
+
+Azurite é o emulador local do Azure Storage:
+
+```bash
+npm install -g azurite
+```
+
+### 2. Iniciar Azurite
+
+```bash
+azurite --silent --location ~/azurite --debug ~/azurite/debug.log
+```
+
+Azurite estará disponível em:
+- Blob Service: `http://127.0.0.1:10000`
+- Queue Service: `http://127.0.0.1:10001`
+- **Table Service**: `http://127.0.0.1:10002`
+
+### 3. Configurar variáveis de ambiente
+
+Copiar `backend/.env.example` para `backend/.env` (as variáveis já estão configuradas para Azurite por padrão).
+
+### 4. Inicializar tabelas
+
+```bash
+cd backend
+python -m backend.scripts.init_tables
+```
+
+Saída esperada:
+```
+Inicializando tabelas no Azure Table Storage...
+  ✓ Cliente: criada
+  ✓ Orcamento: criada
+  ✓ OrcamentoEngenheiro: criada
+  ✓ PlantaPadrao: criada
+  ✓ Opcional: criada
+  ✓ ParametrosGlobais: criada
+  ✓ GruposEncargos: criada
+  ✓ ComposicaoProfissional: criada
+  ✓ InsumoSINAPI: criada
+  ✓ ComposicaoAnalitica: criada
+  ✓ Auditoria: criada
+  ✓ Usuario: criada
+Inicialização concluída.
+```
+
+### 5. Executar testes de integração
+
+```bash
+cd backend
+pytest tests/integration/ -v
+```
+
+Todos os testes devem passar (status `PASSED`).
+
+### Produção — Azure Table Storage
+
+Em produção, o backend usa **Managed Identity** para autenticar no Storage Account. Nenhuma connection string é armazenada.
+
+Variáveis de ambiente em produção (configuradas via `deploy.sh`):
+- `CM_STORAGE_ACCOUNT_NAME=construtobtstorage`
+- `CM_STORAGE_ACCOUNT_URL=https://construtobtstorage.table.core.windows.net`
+- `CM_STORAGE_CONNECTION_STRING=` (vazio — usa Managed Identity)
 
 ---
 

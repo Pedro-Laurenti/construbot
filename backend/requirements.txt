@@ -3,3 +3,9 @@ uvicorn[standard]==0.34.0
 python-dotenv==1.0.1
 azure-data-tables==12.5.0
 azure-identity==1.19.0
+pytest==8.3.4
+pytest-asyncio==0.25.2
+python-jose[cryptography]==3.3.0
+pyjwt[crypto]==2.10.1
+cryptography==45.0.0
+requests==2.32.3

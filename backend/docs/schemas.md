@@ -1,93 +1,65 @@
----
-agent: agent
----
-# Modelagem de Schemas — Azure Tables
+# Schemas Azure Table Storage — ConstruBot
 
-## Contexto
+Este documento define a estrutura de dados de todas as entidades do ConstruBot armazenadas em Azure Table Storage.
 
-O projeto ConstruBot possui atualmente:
-- **Dados do cliente**: armazenados em `localStorage` via `frontend/lib/storage.ts` com funções `loadStorage()`, `saveStorage()`, `findConta()`, `saveConta()`
-- **Tipos TypeScript**: todas as interfaces definidas em `frontend/types/index.ts` — `Cliente`, `Orcamento`, `OrcamentoItem`, `GlobalParams`, `GruposEncargos`, `InsumoSINAPI`, `ComposicaoAnalitica`, `ComposicaoProfissional`, `EngineerData`, `OrcamentoEngenheiro`, `PlantaPadrao`, etc.
-- **Mocks e dados de configuração**: `frontend/lib/mockData.ts` contém `GLOBAL_PARAMS`, `DEFAULT_GRUPOS_ENCARGOS`, `INSUMOS_SINAPI`, `COMPOSICOES_ANALITICAS`, `COMPOSICOES_PROFISSIONAIS`, `PLANTAS_PADRAO`, `SEED_CONTA_MOCK`
-- **Backend atual**: sem persistência real, apenas endpoints de cálculo em `backend/app/routers/calculos.py`
-- **Infraestrutura (etapa 01 concluída)**: Storage Account `construtobtstorage` provisionado, Managed Identity configurada, variáveis `CM_STORAGE_ACCOUNT_NAME`, `CM_STORAGE_ACCOUNT_URL`, `CM_STORAGE_CONNECTION_STRING` disponíveis em `backend/app/utils/config.py`
+## Convenções Gerais
 
-Esta etapa **não implementa código**, apenas documenta a modelagem de dados. A implementação será feita na etapa 03 (camada de persistência).
+### Nomenclatura de Tabelas
 
-## Pré-requisitos
-
-- Etapa alfa-01 concluída (Storage Account provisionado e configurado)
-
-## Entregáveis
-
-Ao final desta etapa, deve existir:
-
-1. **Arquivo de documentação** `backend/docs/schemas.md` contendo:
-   - Convenções gerais (nomenclatura de tabelas, PartitionKey/RowKey, serialização JSON)
-   - Schema completo de cada entidade (12 tabelas)
-   - Estratégia de versionamento SINAPI
-   - Limites do Azure Table Storage (1MB por entidade, 100 propriedades)
-   - Padrões de query mais comuns para cada entidade
-   - Estratégia de multi-tenancy (preparação para etapa 12)
-
-2. **Diretório** `backend/docs/` criado se não existir
-
-## Implementação
-
-### 1. Criar diretório de documentação
-
-Criar `backend/docs/` se não existir.
-
-### 2. Escrever arquivo `backend/docs/schemas.md`
-
-O arquivo deve conter as seguintes seções:
-
-#### 2.1. Convenções Gerais
-
-**Nomenclatura de Tabelas:**
 - Padrão: PascalCase singular (ex: `Cliente`, `Orcamento`, `InsumoSINAPI`)
 - Prefixo `CM` não é necessário (já isolado por Storage Account)
 
-**PartitionKey e RowKey:**
-- **PartitionKey**: sempre no formato `{tenantId}#{categoria}` para isolamento multi-tenant e distribuição de carga
-  - `tenantId` será implementado na etapa 04 (autenticação) e refinado na etapa 12 (permissões). Por ora, usar `default` como tenant único
-  - `categoria` agrupa entidades logicamente relacionadas (ex: `CLIENTE`, `ORCAMENTO`, `SINAPI_INSUMO`)
-- **RowKey**: identificador único da entidade, geralmente UUID ou código composto
-- Exemplo: `PartitionKey = "default#CLIENTE"`, `RowKey = "uuid-do-cliente"`
+### PartitionKey e RowKey
 
-**Serialização de Campos Complexos:**
+**PartitionKey:** sempre no formato `{tenantId}#{categoria}` para isolamento multi-tenant e distribuição de carga
+
+- `tenantId` será implementado na etapa 04 (autenticação) e refinado na etapa 12 (permissões). Por ora, usar `default` como tenant único
+- `categoria` agrupa entidades logicamente relacionadas (ex: `CLIENTE`, `ORCAMENTO`, `SINAPI_INSUMO`)
+
+**RowKey:** identificador único da entidade, geralmente UUID ou código composto
+
+**Exemplo:** `PartitionKey = "default#CLIENTE"`, `RowKey = "uuid-do-cliente"`
+
+### Serialização de Campos Complexos
+
 - Azure Tables suporta nativamente: `string`, `int`, `float`, `bool`, `datetime`, `binary`
 - Campos complexos (arrays, objetos aninhados) → serializar como `string` JSON
 - Convenção de nomenclatura para campos JSON: sufixo `Json` (ex: `itensJson`, `parametrosJson`)
 - Na camada de persistência (etapa 03), criar helpers `serialize_entity()` e `deserialize_entity()` em `backend/app/utils/table_helpers.py`
 
-**Campos de Auditoria:**
-- Toda entidade mutável deve ter:
-  - `createdAt` (string ISO 8601 UTC)
-  - `updatedAt` (string ISO 8601 UTC)
-  - `createdBy` (string, email do usuário — disponível após etapa 04)
-  - `updatedBy` (string, email do usuário — disponível após etapa 04)
+### Campos de Auditoria
 
-**Limites do Azure Table Storage:**
+Toda entidade mutável deve ter:
+
+- `createdAt` (string ISO 8601 UTC)
+- `updatedAt` (string ISO 8601 UTC)
+- `createdBy` (string, email do usuário — disponível após etapa 04)
+- `updatedBy` (string, email do usuário — disponível após etapa 04)
+
+### Limites do Azure Table Storage
+
 - Tamanho máximo por entidade: **1MB**
 - Máximo de propriedades por entidade: **252** (3 são reservadas: PartitionKey, RowKey, Timestamp)
 - Tamanho máximo de propriedade string: **64KB** (suficiente para JSON serializado de arrays médios)
 - Para arrays grandes (ex: 100+ itens de orçamento), considerar estratégia de paginação ou tabela auxiliar
 
-**Limites Específicos do Projeto:**
+### Limites Específicos do Projeto
+
 - `OrcamentoItem[]` em `Orcamento`: espera-se até 50 itens por orçamento → ~30KB JSON serializado → dentro do limite
 - `InsumoSINAPI`: 27 UFs × preço → caber em 27 colunas individuais ou 1 JSON pequeno
 - `ComposicaoAnalitica.itens[]`: até 30 itens por composição → ~15KB JSON → dentro do limite
 - `OrcamentoEngenheiro`: pode ultrapassar 1MB se tiver 100+ serviços calculados → estratégia: separar cálculos em tabela auxiliar `CalculoServico` linkada por `orcamentoEngenheiroId`
 
-#### 2.2. Tabela: `Cliente`
+---
+
+## Tabela: Cliente
 
 **Descrição:** Usuários finais que solicitam orçamentos.
 
 **PartitionKey:** `{tenantId}#CLIENTE`  
 **RowKey:** `{clienteId}` (UUID gerado no cadastro)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -103,22 +75,26 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email (disponível após etapa 04) |
 | `updatedBy` | string | - | Não | Email (disponível após etapa 04) |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Por email: `filter = "PartitionKey eq '{tenant}#CLIENTE' and email eq '{email}'"`
 - Listar todos do tenant: `filter = "PartitionKey eq '{tenant}#CLIENTE'"`
 
-**Validações:**
+### Validações
+
 - Email deve ser validado com regex antes de persistir
 - Email deve ser único por tenant (verificar antes de insert)
 
-#### 2.3. Tabela: `Orcamento`
+---
+
+## Tabela: Orcamento
 
 **Descrição:** Orçamentos criados por clientes, contendo lista de serviços e totais calculados.
 
 **PartitionKey:** `{tenantId}#{clienteId}`  
 **RowKey:** `{orcamentoId}` (UUID)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -141,29 +117,34 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Listar orçamentos de um cliente: `filter = "PartitionKey eq '{tenant}#{clienteId}'"`
 - Buscar orçamento específico: `PartitionKey = '{tenant}#{clienteId}'` + `RowKey = '{orcamentoId}'`
 - Filtrar por status: `filter = "PartitionKey eq '{tenant}#{clienteId}' and status eq 'entregue'"`
 
-**Validações:**
+### Validações
+
 - `itensJson` deve ser array válido (mínimo 1 item)
 - `status` deve estar na lista de valores permitidos
 - `uf` deve ser UF válida do Brasil
 
-**Limite de Tamanho:**
+### Limite de Tamanho
+
 - Com 50 itens × ~600 bytes/item → ~30KB de `itensJson`
 - Totais, parâmetros, saída → ~10KB combinados
 - **Total estimado:** ~50KB → bem dentro do limite de 1MB
 
-#### 2.4. Tabela: `OrcamentoEngenheiro`
+---
+
+## Tabela: OrcamentoEngenheiro
 
 **Descrição:** Dados do dashboard de engenharia associados a um orçamento do cliente. Contém quantitativos, consultas SINAPI, cálculos de MO e materiais, precificação final.
 
 **PartitionKey:** `{tenantId}#ORCAMENTO_ENG`  
 **RowKey:** `{orcamentoEngenheiroId}` (pode ser igual ao `orcamentoClienteId` para mapeamento 1:1)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -194,18 +175,21 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Buscar por ID: `PartitionKey = '{tenant}#ORCAMENTO_ENG'` + `RowKey = '{id}'`
 - Listar todos do tenant: `filter = "PartitionKey eq '{tenant}#ORCAMENTO_ENG'"`
 - Filtrar por etapa: `filter = "PartitionKey eq '{tenant}#ORCAMENTO_ENG' and etapaAtual eq 'E4'"`
 - Buscar por orçamento cliente: `filter = "PartitionKey eq '{tenant}#ORCAMENTO_ENG' and orcamentoClienteId eq '{id}'"`
 
-**Validações:**
+### Validações
+
 - `orcamentoClienteId` deve existir na tabela `Orcamento`
 - `etapaAtual` deve estar na lista permitida
 - `etapasConcluidasJson` deve ser array JSON válido
 
-**Limite de Tamanho — ATENÇÃO:**
+### Limite de Tamanho — ATENÇÃO
+
 - Com 50 serviços, cada um com:
   - `quantitativos`: ~2KB por serviço → 100KB
   - `consultasSINAPI`: ~3KB por serviço → 150KB
@@ -213,18 +197,22 @@ O arquivo deve conter as seguintes seções:
   - `calculosMat`: ~2KB por serviço → 100KB
 - **Total estimado:** ~550KB para 50 serviços
 - **Para 100 serviços:** pode ultrapassar 1MB
-- **Estratégia de mitigação (implementar na etapa 03):**
-  - Se `calculosMOJson` + `calculosMatJson` + `consultasSINAPIJson` ultrapassar 800KB, criar tabela auxiliar `CalculoServico` com `PartitionKey = {tenant}#{orcamentoEngenheiroId}` e `RowKey = {servicoId}`
-  - Manter apenas IDs dos cálculos em `OrcamentoEngenheiro`, buscar detalhes sob demanda
 
-#### 2.5. Tabela: `PlantaPadrao`
+**Estratégia de mitigação (implementar na etapa 03):**
+
+- Se `calculosMOJson` + `calculosMatJson` + `consultasSINAPIJson` ultrapassar 800KB, criar tabela auxiliar `CalculoServico` com `PartitionKey = {tenant}#{orcamentoEngenheiroId}` e `RowKey = {servicoId}`
+- Manter apenas IDs dos cálculos em `OrcamentoEngenheiro`, buscar detalhes sob demanda
+
+---
+
+## Tabela: PlantaPadrao
 
 **Descrição:** Plantas padrão pré-configuradas com lista de serviços.
 
 **PartitionKey:** `{tenantId}#PLANTA`  
 **RowKey:** `{plantaId}` (UUID ou código)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -245,23 +233,27 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Listar todas do tenant: `filter = "PartitionKey eq '{tenant}#PLANTA'"`
 - Filtrar por quartos: `filter = "PartitionKey eq '{tenant}#PLANTA' and quartos eq 3"`
 
-**Validações:**
+### Validações
+
 - `servicosJson` deve ter ao menos 1 serviço
 - `areaConstruidaM2` > 0
 - `tempoObraMeses` > 0
 
-#### 2.6. Tabela: `Opcional`
+---
+
+## Tabela: Opcional
 
 **Descrição:** Opcionais que podem ser adicionados a plantas (ex: piscina, churrasqueira).
 
 **PartitionKey:** `{tenantId}#OPCIONAL`  
 **RowKey:** `{opcionalId}` (UUID)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -279,18 +271,21 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Listar todos: `filter = "PartitionKey eq '{tenant}#OPCIONAL'"`
 - Filtrar por categoria: `filter = "PartitionKey eq '{tenant}#OPCIONAL' and categoria eq 'LAZER'"`
 
-#### 2.7. Tabela: `ParametrosGlobais`
+---
+
+## Tabela: ParametrosGlobais
 
 **Descrição:** Parâmetros globais de cálculo (BDI, salários, encargos, etc.). Versionado: permite múltiplas versões coexistentes.
 
 **PartitionKey:** `{tenantId}#PARAM_GLOBAL`  
 **RowKey:** `{versao}` (ex: `v1`, `v2`, `2026-01-15`, ou `current` para a versão ativa)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -311,23 +306,27 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Buscar versão ativa: `filter = "PartitionKey eq '{tenant}#PARAM_GLOBAL' and ativo eq true"` ou diretamente `RowKey = 'current'`
 - Listar todas as versões: `filter = "PartitionKey eq '{tenant}#PARAM_GLOBAL'"`
 
-**Estratégia de Versionamento:**
+### Estratégia de Versionamento
+
 - Sempre manter uma entidade com `RowKey = 'current'` apontando para os parâmetros ativos
 - Ao criar nova versão, atualizar `current` e opcionalmente salvar snapshot com timestamp como RowKey
 - `OrcamentoEngenheiro.snapshotParametrosGlobaisJson` armazena cópia imutável dos parâmetros usados no cálculo
 
-#### 2.8. Tabela: `GruposEncargos`
+---
+
+## Tabela: GruposEncargos
 
 **Descrição:** Configuração de grupos de encargos sociais (A, B, C, D, D', E).
 
 **PartitionKey:** `{tenantId}#GRUPOS_ENCARGOS`  
 **RowKey:** `{versao}` (ex: `current`, `2026-01`)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -345,21 +344,25 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Buscar versão ativa: `RowKey = 'current'`
 - Listar todas as versões: `filter = "PartitionKey eq '{tenant}#GRUPOS_ENCARGOS'"`
 
-**Estratégia de Versionamento:**
+### Estratégia de Versionamento
+
 - Mesma estratégia de `ParametrosGlobais`
 
-#### 2.9. Tabela: `ComposicaoProfissional`
+---
+
+## Tabela: ComposicaoProfissional
 
 **Descrição:** Composições profissionais de serviços (meta de produção, valor referência, etc.).
 
 **PartitionKey:** `{tenantId}#COMP_PROF`  
 **RowKey:** `{composicaoId}` (ID numérico ou UUID)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -384,19 +387,22 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Listar todas: `filter = "PartitionKey eq '{tenant}#COMP_PROF'"`
 - Filtrar por categoria: `filter = "PartitionKey eq '{tenant}#COMP_PROF' and categoria eq 'ALVENARIA'"`
 - Buscar por refSINAPI: `filter = "PartitionKey eq '{tenant}#COMP_PROF' and refSINAPI eq '87888'"`
 
-#### 2.10. Tabela: `InsumoSINAPI`
+---
+
+## Tabela: InsumoSINAPI
 
 **Descrição:** Base de preços de insumos SINAPI por UF, versionada mensalmente.
 
 **PartitionKey:** `{sinapiRef}#{classificacao}` (ex: `2026-01#MATERIAL`, `2026-01#SERVICOS`, `2026-01#EQUIPAMENTO`)  
 **RowKey:** `{codigo}` (código SINAPI do insumo)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -438,37 +444,45 @@ O arquivo deve conter as seguintes seções:
 | `createdAt` | string | - | Sim | ISO 8601 UTC (data de ingestão) |
 | `updatedAt` | string | - | Sim | ISO 8601 UTC |
 
-**Estratégia de Versionamento SINAPI:**
+### Estratégia de Versionamento SINAPI
+
 - **PartitionKey** inclui `sinapiRef` (ex: `2026-01#MATERIAL`) → múltiplas versões mensais coexistem sem conflito
 - Ao ingerir nova versão SINAPI (etapa 09a), criar novo conjunto de partitions com `sinapiRef` atualizado
 - Queries devem especificar `sinapiRef` desejado: `filter = "PartitionKey eq '2026-01#MATERIAL' and codigo eq '00001379'"`
 - Fallback para SP: se UF não tiver preço (`null`), usar `precoSP` como referência
 - Tabela `ParametrosGlobais` ou `EngineerData` deve ter campo `mesReferenciaSINAPI` indicando versão ativa
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Buscar insumo por código e versão: `filter = "PartitionKey eq '{sinapiRef}#MATERIAL' and codigo eq '00001379'"`
 - Listar todos os materiais de uma versão: `filter = "PartitionKey eq '{sinapiRef}#MATERIAL'"`
 - Buscar por descrição (ineficiente, usar cache ou Cognitive Search): não suportado nativamente
 
-**Validações:**
+### Validações
+
 - Ao inserir, validar que ao menos 1 UF tenha preço preenchido
 - `origemPreco` = `C` deve ter mais UFs preenchidas que `CR`
 
-**Alternativa de Schema (se 27 colunas for problemático):**
+### Alternativa de Schema
+
+Se 27 colunas for problemático:
+
 - Manter `precosJson` como string JSON: `{"SP": 32.50, "RJ": 34.00, ...}`
 - Vantagem: menos colunas, mais flexível
 - Desvantagem: não permite query por preço de UF específica diretamente
 
 **Recomendação:** usar colunas individuais por UF para facilitar queries e validações.
 
-#### 2.11. Tabela: `ComposicaoAnalitica`
+---
+
+## Tabela: ComposicaoAnalitica
 
 **Descrição:** Composições analíticas SINAPI (serviços compostos por insumos e/ou outras composições).
 
 **PartitionKey:** `{sinapiRef}#COMP_ANALITICA`  
 **RowKey:** `{codigoComposicao}` (código SINAPI da composição)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -483,23 +497,27 @@ O arquivo deve conter as seguintes seções:
 | `createdAt` | string | - | Sim | ISO 8601 UTC |
 | `updatedAt` | string | - | Sim | ISO 8601 UTC |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Buscar por código e versão: `filter = "PartitionKey eq '{sinapiRef}#COMP_ANALITICA' and codigoComposicao eq '87888'"`
 - Listar todas de uma versão: `filter = "PartitionKey eq '{sinapiRef}#COMP_ANALITICA'"`
 - Filtrar por grupo: `filter = "PartitionKey eq '{sinapiRef}#COMP_ANALITICA' and grupo eq 'ALVENARIA'"`
 
-**Validações:**
+### Validações
+
 - `itensJson` deve ter ao menos 1 item
 - Cada item deve ter `tipoItem` válido (`COMPOSICAO` ou `INSUMO`)
 
-#### 2.12. Tabela: `Auditoria`
+---
+
+## Tabela: Auditoria
 
 **Descrição:** Log de eventos de auditoria (ações mutantes, alterações de parâmetros, cálculos realizados).
 
 **PartitionKey:** `{tenantId}#{ano-mes}` (ex: `default#2026-04`) — particiona por mês para facilitar queries e limpeza de dados antigos  
 **RowKey:** `{timestamp}#{eventId}` (ISO timestamp + UUID) — garante ordem cronológica e unicidade
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -515,28 +533,33 @@ O arquivo deve conter as seguintes seções:
 | `impacto` | string | string? | Não | Impacto da ação (ex: `ALTO`, `MEDIO`, `BAIXO`) |
 | `detalhesJson` | string | object? | Não | JSON com detalhes adicionais (diff, valores alterados, etc.) |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Listar eventos de um mês: `filter = "PartitionKey eq '{tenant}#2026-04'"`
 - Filtrar por usuário: `filter = "PartitionKey eq '{tenant}#2026-04' and usuario eq 'user@example.com'"`
 - Filtrar por módulo: `filter = "PartitionKey eq '{tenant}#2026-04' and modulo eq 'ORCAMENTO'"`
 - Filtrar por entidade: `filter = "PartitionKey eq '{tenant}#2026-04' and entidadeTipo eq 'Orcamento' and entidadeId eq '{id}'"`
 
-**Validações:**
+### Validações
+
 - `timestamp` deve ser ISO 8601 válido
 - `acao` deve estar na lista de ações permitidas
 
-**Retenção de Dados:**
+### Retenção de Dados
+
 - Considerar política de retenção (ex: manter 12 meses, arquivar ou deletar dados mais antigos)
 - Implementar job periódico (Azure Function) para limpeza de partitions antigas (etapa 09b ou 11)
 
-#### 2.13. Tabela: `Usuario` (preparação para etapa 04)
+---
+
+## Tabela: Usuario
 
 **Descrição:** Usuários autenticados via Azure AD. Mapeia claims do JWT para roles e permissões no sistema.
 
 **PartitionKey:** `{tenantId}#USUARIO`  
 **RowKey:** `{userId}` (Object ID do Azure AD ou UUID)
 
-**Colunas:**
+### Colunas
 
 | Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
 |--------|-----------|-----------------|-------------|-------|
@@ -555,61 +578,78 @@ O arquivo deve conter as seguintes seções:
 | `createdBy` | string | - | Não | Email |
 | `updatedBy` | string | - | Não | Email |
 
-**Índices Secundários (Query Patterns):**
+### Índices Secundários (Query Patterns)
+
 - Buscar por email: `filter = "PartitionKey eq '{tenant}#USUARIO' and email eq '{email}'"`
 - Listar todos do tenant: `filter = "PartitionKey eq '{tenant}#USUARIO'"`
 - Filtrar por role: `filter = "PartitionKey eq '{tenant}#USUARIO' and role eq 'engenheiro'"`
 
-**Validações:**
+### Validações
+
 - Email deve ser único por tenant
 - `role` deve estar na lista permitida
 - `azureAdObjectId` deve ser único (validar antes de insert)
 
-**Integração com Azure AD (etapa 04):**
+### Integração com Azure AD (etapa 04)
+
 - Ao receber JWT do Azure AD, extrair claims (`sub`, `email`, `name`)
 - Buscar usuário na tabela por `email` ou `azureAdObjectId`
 - Se não existir, criar automaticamente (onboarding) ou retornar erro 403 (depende da estratégia)
 - Atualizar `ultimoLogin` a cada autenticação bem-sucedida
 
-### 3. Padrões de Query Adicionais
+---
 
-**Query Cross-Entity (relacionamentos):**
-- Exemplo: buscar todos os orçamentos de um cliente
-  1. Query `Cliente` por email → obter `clienteId`
-  2. Query `Orcamento` com `PartitionKey = '{tenant}#{clienteId}'`
+## Padrões de Query Adicionais
 
-**Query por Versão SINAPI Ativa:**
+### Query Cross-Entity (relacionamentos)
+
+Exemplo: buscar todos os orçamentos de um cliente
+
+1. Query `Cliente` por email → obter `clienteId`
+2. Query `Orcamento` com `PartitionKey = '{tenant}#{clienteId}'`
+
+### Query por Versão SINAPI Ativa
+
 - Manter campo `mesReferenciaSINAPI` em `ParametrosGlobais` (RowKey = `current`)
 - Ao calcular orçamento, ler `mesReferenciaSINAPI` e usar como prefixo nas queries de `InsumoSINAPI` e `ComposicaoAnalitica`
 - Exemplo: `filter = "PartitionKey eq '{sinapiRef}#MATERIAL' and codigo eq '00001379'"`
 
-**Query de Orçamentos em Andamento para Engenheiro:**
+### Query de Orçamentos em Andamento para Engenheiro
+
 - Query `OrcamentoEngenheiro` com `filter = "PartitionKey eq '{tenant}#ORCAMENTO_ENG' and etapaAtual ne 'ENTREGUE'"`
 
-### 4. Considerações de Performance
+---
 
-**Particionamento Eficiente:**
+## Considerações de Performance
+
+### Particionamento Eficiente
+
 - `Orcamento`: particionar por `{tenantId}#{clienteId}` distribui carga se houver muitos clientes
 - `InsumoSINAPI`: particionar por `{sinapiRef}#{classificacao}` evita hot partitions (3 classificações × 12 meses/ano = 36 partições)
 - `Auditoria`: particionar por mês evita crescimento ilimitado de uma partition
 
-**Paginação:**
+### Paginação
+
 - Azure Tables retorna no máximo 1000 entidades por query
 - Para queries grandes (ex: listar todos os insumos SINAPI), usar continuation token
 - Implementar paginação na camada de serviço (etapa 03)
 
-**Caching:**
+### Caching
+
 - Dados read-heavy e raramente alterados (ex: `ParametrosGlobais`, `InsumoSINAPI`) → considerar cache Redis (etapa 15, otimização de custos)
 - Orçamentos e cálculos são read-write frequente → não cachear
 
-**Índices Secundários:**
+### Índices Secundários
+
 - Azure Tables não suporta índices secundários nativamente
 - Para queries complexas (ex: busca por descrição de insumo), considerar:
   - Azure Cognitive Search (adicionar em etapa futura)
   - Denormalização (duplicar campo em múltiplas entidades)
   - Cache em memória (para listas pequenas como `ComposicaoProfissional`)
 
-### 5. Limites e Validações — Resumo
+---
+
+## Limites e Validações — Resumo
 
 | Entidade | Tamanho Estimado | Risco 1MB | Estratégia de Mitigação |
 |----------|-----------------|-----------|------------------------|
@@ -626,74 +666,38 @@ O arquivo deve conter as seguintes seções:
 | `Auditoria` | ~2KB | Nenhum | - |
 | `Usuario` | ~1KB | Nenhum | - |
 
-**Validação na Camada de Persistência (etapa 03):**
+### Validação na Camada de Persistência (etapa 03)
+
 - Antes de inserir/atualizar, calcular tamanho estimado da entidade serializada
 - Se > 900KB, alertar ou rejeitar operação
 - Para `OrcamentoEngenheiro`, implementar split automático em tabela auxiliar se necessário
 
-### 6. Convenções de Nomenclatura — Resumo
+---
 
-**Tabelas:**
+## Convenções de Nomenclatura — Resumo
+
+### Tabelas
+
 - PascalCase singular (ex: `Cliente`, `Orcamento`)
 
-**PartitionKey:**
+### PartitionKey
+
 - Formato: `{tenantId}#{categoria}`
 - Sempre incluir `tenantId` (mesmo que `default` por ora)
 
-**RowKey:**
+### RowKey
+
 - UUID v4 ou código único
 - Para entidades versionadas: usar versão ou timestamp
 - Para auditoria: usar `{timestamp}#{uuid}` para ordenação cronológica
 
-**Colunas JSON:**
+### Colunas JSON
+
 - Sufixo `Json` (ex: `itensJson`, `parametrosJson`)
 - Serializar como string JSON válido
 - Deserializar na camada de persistência
 
-**Campos de Auditoria:**
+### Campos de Auditoria
+
 - `createdAt`, `updatedAt`: ISO 8601 UTC
 - `createdBy`, `updatedBy`: email do usuário (disponível após etapa 04)
-
-## Restrições
-
-- Este prompt **não implementa código**, apenas documenta schemas
-- Sem comentários no código (não aplicável, apenas documentação)
-- Sem emojis
-- Escrever em português brasileiro com acentuação correta
-- O arquivo `backend/docs/schemas.md` deve ser markdown puro, sem diagramas gerados por ferramentas externas
-- Não adicionar testes nesta etapa (testes serão implementados na etapa 13)
-- Não criar código de migração nesta etapa (será implementado na etapa 03 e 06)
-
-## Verificação
-
-Para confirmar que a etapa está concluída:
-
-1. **Arquivo existe:**
-   ```bash
-   ls -lh backend/docs/schemas.md
-   ```
-   Deve retornar o arquivo com ~20KB de tamanho (estimativa).
-
-2. **Conteúdo completo:**
-   Abrir `backend/docs/schemas.md` e verificar que contém:
-   - Seção de convenções gerais
-   - 12+ schemas de tabelas com PartitionKey, RowKey e todas as colunas documentadas
-   - Estratégia de versionamento SINAPI
-   - Padrões de query para cada entidade
-   - Considerações de performance
-   - Limites e validações
-
-3. **Validação de formato:**
-   ```bash
-   grep -c "### " backend/docs/schemas.md
-   ```
-   Deve retornar >= 20 (múltiplas subseções).
-
-4. **Nenhum código foi criado:**
-   ```bash
-   git status backend/app/
-   ```
-   Não deve mostrar arquivos novos ou modificados (exceto se `backend/docs/` for rastreado).
-
-5. **Pronto para etapa 03:**
-   O documento deve ser suficiente para implementar a camada de persistência sem ambiguidades.
