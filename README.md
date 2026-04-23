@@ -198,6 +198,70 @@ Para redeploys, basta rodar `./deploy.sh` novamente — o script detecta apps ex
    curl http://localhost:8000/api/storage-health
    ```
 
+---
+
+## 🧮 Arquitetura de Cálculos
+
+A partir da etapa alfa-07, **todos os cálculos de orçamento são realizados exclusivamente no backend** (FastAPI). O frontend atua como um wrapper fino, enviando requisições para a API e exibindo os resultados.
+
+### Princípios
+
+1. **Backend é a fonte de verdade** — toda lógica de cálculo (mão de obra, materiais, fluxo de caixa, INCC, consolidação) está em `backend/app/services/orcamento_service.py`
+
+2. **Frontend é wrapper** — `frontend/lib/calculos.ts` apenas:
+   - Chama endpoints `/api/calculos/*`
+   - Formata parâmetros (camelCase → snake_case)
+   - Transforma respostas (snake_case → camelCase)
+   - Mantém funções auxiliares locais (getCustosHora, resolverParametrosMOComposicao, prazoCenario)
+
+3. **Snapshot de cálculo** — ao consolidar um orçamento via POST `/api/calculos/consolidacao`, o backend serializa o resultado como JSON e salva no campo `calculoSnapshotJson` da entidade Orcamento (Azure Table Storage). Isso permite:
+   - Reproduzir cálculos exatos mesmo após mudanças nas constantes ou lógica
+   - Auditar divergências entre versões
+   - Garantir consistência para clientes
+
+### Endpoints Principais
+
+| Endpoint | Descrição | Validações |
+|----------|-----------|------------|
+| `POST /api/calculos/mao-de-obra` | Calcula mão de obra para um serviço (cenários mensalista/ótima/prazo, bônus, economia) | quantidade > 0, produtividade_basica_unh > 0, fator_encargos >= 1, prazo_requerido_dias >= 0 |
+| `POST /api/calculos/materiais` | Calcula custo de materiais com deduplicação de insumos por código SINAPI | quantidade > 0 |
+| `POST /api/calculos/fluxo-caixa` | Calcula fluxo de caixa mensal com correção INCC (mês 0 = sem correção) | custo_direto_total > 0, tempo_obra_meses > 0 |
+| `POST /api/calculos/consolidacao` | Consolida orçamento completo (soma custos MO + Mat, aplica BDI, salva snapshot) | area_total > 0 |
+
+### Correções Aplicadas (Etapa 07)
+
+A etapa alfa-07 corrigiu **13 divergências críticas** identificadas no prompt 13:
+
+1. Modalidade profissional/ajudante propagada corretamente para todos os cenários
+2. Custo final calculado contra cenário **ótima** (não prazo)
+3. Economia calculada contra cenário **ótima** (não prazo)
+4. Salário esperado sem bônus duplicado
+5. Valor mensal esperado sem fator `22/prazo_ef` incorreto
+6. Campo `desconto_cliente` explícito no retorno
+7. Deduplicação de insumos por código SINAPI em `calcular_materiais`
+8. Fator INCC com mês 0 sem correção (`(1 + incc_mensal) ** i`)
+9. Cenários mensalista/ótima usam prazos proporcionais via `prazo_cenario(escala, prazo_requerido)`
+10. Ajudantes necessários podem ser 0
+11. Guarda contra divisão por zero em prazo
+12. Constante obsoleta `CM_ENCARGOS_TOTAL` removida
+13. Validações obrigatórias em todos os endpoints de cálculo
+
+### Desenvolvimento
+
+Ao modificar lógica de cálculo:
+
+1. Editar `backend/app/services/orcamento_service.py`
+2. Adicionar validações em `backend/app/routers/calculos.py` se necessário
+3. Atualizar modelos Pydantic se a resposta mudar
+4. Executar `pytest backend/tests/integration/test_calculos_paridade.py` (se houver testes)
+5. Documentar mudanças no changelog e atualizar `backend/docs/schemas.md`
+
+### Importante
+
+Não reimplemente cálculos no frontend. Se você precisa de um novo cálculo, adicione um endpoint no backend e chame-o do frontend via `frontend/lib/api.ts`.
+
+---
+
 ### Azure AD (Autenticação)
 
 A autenticação é feita via **Azure AD (Entra ID)** com fluxo OAuth2 Authorization Code + PKCE:
@@ -529,6 +593,72 @@ O tema `whatsapp` é definido em `tailwind.config.ts` com a paleta de cores do W
 | `accent` | `#53bdeb` | Ticks de leitura, labels de bot |
 | `base-100` | `#111b21` | Fundo principal |
 | `base-300` | `#202c33` | Cabeçalhos, painéis |
+
+---
+
+## 📊 Dados SINAPI
+
+O ConstruBot utiliza dados oficiais de custos de construção do **SINAPI** (Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil) da Caixa Econômica Federal.
+
+### Versionamento
+
+- Formato: `AAAA-MM` (ex: `2026-04` para abril de 2026)
+- Múltiplas versões coexistem no banco de dados
+- Apenas uma versão está ativa por vez (configurada em ParametrosGlobais)
+- Rollback: troque a versão ativa para uma anterior via API PUT `/api/sinapi/versao-ativa` (requer role admin)
+
+### Ingestão de Dados
+
+Use o script ETL para importar arquivos Excel oficiais do SINAPI:
+
+```bash
+cd backend
+python scripts/etl_sinapi.py \
+  --ise /caminho/ise_2026_04.xlsx \
+  --composicoes /caminho/composicoes_2026_04.xlsx \
+  --ref 2026-04
+```
+
+O ETL realiza:
+1. Parsing de insumos (27 UFs) e composições analíticas
+2. Validação de integridade (duplicados, referências órfãs, preços ausentes)
+3. Persistência no Azure Table Storage (InsumoSINAPI e ComposicaoAnalitica)
+
+### Modo Dry-Run
+
+Teste arquivos antes da ingestão real:
+
+```bash
+python scripts/etl_sinapi.py \
+  --ise /caminho/ise_2026_04.xlsx \
+  --ref 2026-04 \
+  --dry-run
+```
+
+### Consultar Dados via API
+
+**Listar versões disponíveis:**
+```bash
+GET /api/sinapi/versoes
+```
+
+**Obter preço de insumo:**
+```bash
+GET /api/sinapi/insumo/{codigo}?uf=SP&sinapi_ref=2026-04&classificacao=MATERIAL
+```
+
+**Obter composição analítica:**
+```bash
+GET /api/sinapi/composicao/{codigo}?sinapi_ref=2026-04
+```
+
+### Fallback de Preços
+
+Se o preço não existir na UF solicitada, o sistema retorna automaticamente o preço de SP como fallback.
+
+### Documentação Completa
+
+Veja [backend/docs/sinapi_etl.md](backend/docs/sinapi_etl.md) para detalhes sobre formato dos arquivos, schemas das tabelas e processo completo de ingestão.
 
 ---
 

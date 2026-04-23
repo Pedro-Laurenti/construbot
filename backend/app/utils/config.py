@@ -58,28 +58,6 @@ CM_SERVICE_CONFIG = {
     "LIMPEZA_INTERNA": {"prod_basica": 8.00, "prop_ajudante": 0.5, "material_unitario": 4},
 }
 
-CM_COMPOSICOES_ANALITICAS_MOCK = {
-    "87888": {"produtividade_basica": 1 / 0.87, "proporcao_ajudante": 0.75 / 0.87},
-    "87251": {"produtividade_basica": 1 / 0.48, "proporcao_ajudante": 0.35 / 0.48},
-    "87264": {"produtividade_basica": 1 / 0.50, "proporcao_ajudante": 0},
-    "88484": {"produtividade_basica": 1 / 0.32, "proporcao_ajudante": 0.10 / 0.32},
-    "87557": {"produtividade_basica": 1 / 5.20, "proporcao_ajudante": 6.50 / 5.20},
-    "104924": {"produtividade_basica": 1 / 4.80, "proporcao_ajudante": 6.00 / 4.80},
-    "97083": {"produtividade_basica": 1 / 3.50, "proporcao_ajudante": 5.00 / 3.50},
-    "97096": {"produtividade_basica": 1 / 4.00, "proporcao_ajudante": 5.50 / 4.00},
-    "89288": {"produtividade_basica": 1 / 0.75, "proporcao_ajudante": 0.65 / 0.75},
-    "104442": {"produtividade_basica": 1 / 0.80, "proporcao_ajudante": 0.70 / 0.80},
-    "89993": {"produtividade_basica": 1 / 2.00, "proporcao_ajudante": 3.50 / 2.00},
-    "89995": {"produtividade_basica": 1 / 2.50, "proporcao_ajudante": 4.00 / 2.50},
-    "87622": {"produtividade_basica": 1 / 0.35, "proporcao_ajudante": 0.25 / 0.35},
-    "87421": {"produtividade_basica": 1 / 0.55, "proporcao_ajudante": 0.20 / 0.55},
-    "87414": {"produtividade_basica": 1 / 0.75, "proporcao_ajudante": 0.25 / 0.75},
-    "87257": {"produtividade_basica": 1 / 0.75, "proporcao_ajudante": 0.45 / 0.75},
-    "87263": {"produtividade_basica": 1 / 0.85, "proporcao_ajudante": 0.50 / 0.85},
-    "88489": {"produtividade_basica": 1 / 0.35, "proporcao_ajudante": 0.08 / 0.35},
-    "88423": {"produtividade_basica": 1 / 0.40, "proporcao_ajudante": 0.10 / 0.40},
-}
-
 CM_STORAGE_ACCOUNT_NAME = os.getenv("CM_STORAGE_ACCOUNT_NAME", "")
 CM_STORAGE_ACCOUNT_URL = os.getenv("CM_STORAGE_ACCOUNT_URL", "")
 CM_STORAGE_CONNECTION_STRING = os.getenv("CM_STORAGE_CONNECTION_STRING", "")

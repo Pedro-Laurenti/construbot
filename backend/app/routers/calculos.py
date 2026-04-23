@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from enum import Enum
 
@@ -16,6 +16,7 @@ from app.services.orcamento_service import (
     consolidar_engenheiro,
     gerar_quantitativos_from_parametros,
 )
+from app.utils.helpers import raise_http_error
 from app.utils.config import (
     CM_ENCARGOS_GRUPO_A, CM_ENCARGOS_GRUPO_B, CM_ENCARGOS_GRUPO_D,
     CM_ENCARGOS_GRUPO_E, CM_FATOR_ENCARGOS, CM_SALARIO_QUALIFICADO,
@@ -428,38 +429,70 @@ async def post_salarios(req: SalariosRequest) -> SalariosResponse:
 
 @router.post("/calculos/mao-de-obra", response_model=ServicoMOResponse)
 async def post_mao_de_obra(req: ServicoMORequest) -> ServicoMOResponse:
-    result = calcular_mao_de_obra(
-        req.quantidade, req.produtividade_basica_unh, req.adicional_produtividade,
-        req.proporcao_ajudante, req.prazo_requerido_dias, req.salario_qualificado,
-        req.salario_servente, req.fator_encargos, CM_BDI_PADRAO,
-        req.modalidade.value, req.modalidade_ajudante.value,
-        req.composicao_basica, req.especificacao1,
-    )
-    return ServicoMOResponse(
-        servico_id=req.servico_id,
-        **result,
-    )
+    if req.quantidade <= 0:
+        raise_http_error(400, "quantidade deve ser maior que 0")
+    if req.produtividade_basica_unh <= 0:
+        raise_http_error(400, "produtividade_basica_unh deve ser maior que 0")
+    if req.fator_encargos < 1:
+        raise_http_error(400, "fator_encargos deve ser >= 1")
+    if req.prazo_requerido_dias < 0:
+        raise_http_error(400, "prazo_requerido_dias deve ser >= 0")
+    
+    try:
+        result = calcular_mao_de_obra(
+            req.quantidade, req.produtividade_basica_unh, req.adicional_produtividade,
+            req.proporcao_ajudante, req.prazo_requerido_dias, req.salario_qualificado,
+            req.salario_servente, req.fator_encargos, CM_BDI_PADRAO,
+            req.modalidade.value, req.modalidade_ajudante.value,
+            req.composicao_basica, req.especificacao1,
+        )
+        return ServicoMOResponse(
+            servico_id=req.servico_id,
+            **result,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_http_error(500, f"Erro ao calcular mão de obra: {str(e)}")
 
 
 @router.post("/calculos/materiais", response_model=ServicoMatResponse)
 async def post_materiais(req: ServicoMatRequest) -> ServicoMatResponse:
-    insumos = [i.model_dump() for i in req.insumos]
-    result = calcular_materiais(req.quantidade, insumos)
-    return ServicoMatResponse(servico_id=req.servico_id, **result)
+    if req.quantidade <= 0:
+        raise_http_error(400, "quantidade deve ser maior que 0")
+    
+    try:
+        insumos = [i.model_dump() for i in req.insumos]
+        result = calcular_materiais(req.quantidade, insumos)
+        return ServicoMatResponse(servico_id=req.servico_id, **result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_http_error(500, f"Erro ao calcular materiais: {str(e)}")
 
 
 @router.post("/calculos/fluxo-caixa", response_model=FluxoCaixaResponse)
 async def post_fluxo_caixa(req: FluxoCaixaRequest) -> FluxoCaixaResponse:
-    parcelas, total_corrigido = calcular_fluxo_caixa_incc(
-        req.custo_direto_total, req.tempo_obra_meses,
-        req.incc_mensal, req.distribuicao_mensal,
-    )
-    return FluxoCaixaResponse(
-        custo_direto_total=req.custo_direto_total,
-        custo_direto_com_incc=total_corrigido,
-        diferenca_incc=round(total_corrigido - req.custo_direto_total, 2),
-        parcelas=[FluxoCaixaMensalResponse(**p) for p in parcelas],
-    )
+    if req.custo_direto_total <= 0:
+        raise_http_error(400, "custo_direto_total deve ser maior que 0")
+    if req.tempo_obra_meses <= 0:
+        raise_http_error(400, "tempo_obra_meses deve ser maior que 0")
+    
+    try:
+        parcelas, total_corrigido = calcular_fluxo_caixa_incc(
+            req.custo_direto_total, req.tempo_obra_meses,
+            req.incc_mensal, req.distribuicao_mensal,
+        )
+        return FluxoCaixaResponse(
+            custo_direto_total=req.custo_direto_total,
+            custo_direto_com_incc=total_corrigido,
+            diferenca_incc=round(total_corrigido - req.custo_direto_total, 2),
+            parcelas=[FluxoCaixaMensalResponse(**p) for p in parcelas],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_http_error(500, f"Erro ao calcular fluxo de caixa: {str(e)}")
 
 
 @router.post("/calculos/precificacao", response_model=PrecificacaoResponse)
@@ -506,12 +539,20 @@ async def post_faixa_cotacao(req: FaixaCotacaoRequest) -> FaixaCotacaoResponse:
 
 @router.post("/calculos/consolidacao", response_model=ConsolidacaoResponse)
 async def post_consolidacao(req: ConsolidacaoRequest) -> ConsolidacaoResponse:
-    result = consolidar_engenheiro(
-        req.orcamento_id,
-        req.cliente_id,
-        {chave: valor.model_dump(exclude={"servico_id"}) for chave, valor in req.resultados_mo.items()},
-        {chave: valor.model_dump() for chave, valor in req.configs_mat.items()},
-        req.area_total,
-        req.bdi,
-    )
-    return ConsolidacaoResponse(**result)
+    if req.area_total <= 0:
+        raise_http_error(400, "area_total deve ser maior que 0")
+    
+    try:
+        result = consolidar_engenheiro(
+            req.orcamento_id,
+            req.cliente_id,
+            {chave: valor.model_dump(exclude={"servico_id"}) for chave, valor in req.resultados_mo.items()},
+            {chave: valor.model_dump() for chave, valor in req.configs_mat.items()},
+            req.area_total,
+            req.bdi,
+        )
+        return ConsolidacaoResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise_http_error(500, f"Erro ao consolidar orçamento: {str(e)}")

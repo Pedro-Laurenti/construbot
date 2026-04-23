@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import health, calculos, localidades, storage_health, auth, clientes, orcamentos, orcamentos_engenheiro, parametros_globais, grupos_encargos, auditoria
+from app.routers import health, calculos, localidades, storage_health, auth, clientes, orcamentos, orcamentos_engenheiro, parametros_globais, grupos_encargos, auditoria, sinapi
 from app.utils.config import CM_APP_CORS_ORIGINS
 
 app = FastAPI(title="ConstruBot API", version="0.1.0", docs_url="/docs", redoc_url="/redoc")
@@ -25,3 +25,4 @@ app.include_router(orcamentos_engenheiro.router, prefix="/api", tags=["Orcamento
 app.include_router(parametros_globais.router, prefix="/api", tags=["Parametros Globais"])
 app.include_router(grupos_encargos.router, prefix="/api", tags=["Grupos Encargos"])
 app.include_router(auditoria.router, prefix="/api", tags=["Auditoria"])
+app.include_router(sinapi.router, prefix="/api", tags=["SINAPI"])

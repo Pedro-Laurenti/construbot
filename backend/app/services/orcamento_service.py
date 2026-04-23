@@ -5,11 +5,13 @@ from app.utils.config import (
     CM_BONUS_CLIENTE,
     CM_BONUS_CONSTRUTORA,
     CM_BONUS_PROFISSIONAL,
-    CM_COMPOSICOES_ANALITICAS_MOCK,
     CM_PRODUTIVIDADE_MENSALISTA,
     CM_PRODUTIVIDADE_OTIMA,
     CM_SERVICE_CONFIG,
 )
+from app.services import sinapi_service
+
+_cache_composicao_local = {}
 
 
 def calcular_encargos(grupo_a, grupo_b, grupo_d, grupo_e, a2_fgts, a8_seconci, d1_aviso_previo):
@@ -173,10 +175,44 @@ def calcular_faixa_cotacao(quantitativos, params, incc_mensal, tempo_meses):
 def resolver_parametros_mo_composicao(composicao_basica, produtividade_basica, proporcao_ajudante):
     if not composicao_basica:
         return produtividade_basica, proporcao_ajudante
-    composicao = CM_COMPOSICOES_ANALITICAS_MOCK.get(composicao_basica)
-    if not composicao:
+    
+    if composicao_basica in _cache_composicao_local:
+        comp_cached = _cache_composicao_local[composicao_basica]
+        return comp_cached["produtividade_basica"], comp_cached["proporcao_ajudante"]
+    
+    try:
+        comp = sinapi_service.get_composicao(composicao_basica)
+        if not comp:
+            return produtividade_basica, proporcao_ajudante
+        
+        itens = comp.get("itens", [])
+        hh_profissional = 0
+        hh_ajudante = 0
+        
+        for item in itens:
+            tipo = item.get("tipo", "").upper()
+            coef = item.get("coeficiente", 0)
+            if tipo == "MAO_DE_OBRA_PROFISSIONAL":
+                hh_profissional += coef
+            elif tipo == "MAO_DE_OBRA_AJUDANTE":
+                hh_ajudante += coef
+        
+        if hh_profissional > 0:
+            prod_basica = 1 / hh_profissional
+            prop_ajudante = hh_ajudante / hh_profissional
+        else:
+            prod_basica = produtividade_basica
+            prop_ajudante = proporcao_ajudante
+        
+        _cache_composicao_local[composicao_basica] = {
+            "produtividade_basica": prod_basica,
+            "proporcao_ajudante": prop_ajudante
+        }
+        
+        return prod_basica, prop_ajudante
+    
+    except Exception:
         return produtividade_basica, proporcao_ajudante
-    return composicao["produtividade_basica"], composicao["proporcao_ajudante"]
 
 
 def cenario_referencia(quantidade, nome, profissionais, ajudantes, dias, valor):
