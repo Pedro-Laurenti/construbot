@@ -265,6 +265,110 @@ A autenticação é feita via **Azure AD (Entra ID)** com fluxo OAuth2 Authoriza
    # Deve retornar dados do usuário
    ```
 
+---
+
+## 📡 Endpoints da API
+
+A API REST expõe endpoints CRUD para todas as entidades, com autenticação JWT obrigatória e controle de acesso baseado em roles.
+
+### Autenticação
+
+Todos os endpoints (exceto `/api/health`) requerem token JWT no header:
+
+```bash
+Authorization: Bearer <token>
+```
+
+### Clientes (`/api/clientes`)
+
+- **POST** `/clientes` — Criar novo cliente (role: cliente)
+- **GET** `/clientes` — Listar clientes (role: cliente, retorna apenas os próprios)
+- **GET** `/clientes/:id` — Obter cliente por ID (role: cliente)
+- **PUT** `/clientes/:id` — Atualizar cliente (role: cliente)
+- **DELETE** `/clientes/:id` — Deletar cliente (role: admin)
+
+Parâmetros de query:
+- `skip` (int): Paginação (padrão: 0)
+- `limit` (int): Itens por página (padrão: 50, máx: 100)
+- `email` (string): Filtrar por email
+
+### Orçamentos (`/api/orcamentos`)
+
+- **POST** `/orcamentos` — Criar novo orçamento (role: cliente)
+- **GET** `/orcamentos` — Listar orçamentos (role: cliente, retorna apenas os próprios)
+- **GET** `/orcamentos/:id` — Obter orçamento por ID (role: cliente)
+- **GET** `/clientes/:clienteId/orcamentos` — Listar orçamentos de um cliente (role: cliente)
+- **PUT** `/orcamentos/:id` — Atualizar orçamento (role: cliente)
+- **DELETE** `/orcamentos/:id` — Deletar orçamento (role: cliente)
+
+Parâmetros de query:
+- `skip` (int): Paginação (padrão: 0)
+- `limit` (int): Itens por página (padrão: 50, máx: 100)
+- `cliente_id` (string): Filtrar por cliente
+- `status` (string): Filtrar por status
+
+### Orçamentos Engenheiro (`/api/orcamentos-engenheiro`)
+
+- **GET** `/orcamentos-engenheiro` — Listar todos os orçamentos engenheiro (role: engenheiro)
+- **GET** `/orcamentos-engenheiro/:id` — Obter orçamento engenheiro por ID (role: engenheiro)
+
+Parâmetros de query:
+- `skip` (int): Paginação (padrão: 0)
+- `limit` (int): Itens por página (padrão: 50, máx: 100)
+
+### Parâmetros Globais (`/api/parametros-globais`)
+
+- **GET** `/parametros-globais` — Obter parâmetros globais (role: engenheiro)
+- **PUT** `/parametros-globais` — Atualizar parâmetros globais (role: engenheiro)
+
+### Grupos de Encargos (`/api/grupos-encargos`)
+
+- **GET** `/grupos-encargos` — Obter grupos de encargos (role: engenheiro)
+- **PUT** `/grupos-encargos` — Atualizar grupos de encargos (role: engenheiro)
+
+### Auditoria (`/api/auditoria`)
+
+- **GET** `/auditoria` — Listar registros de auditoria (role: admin)
+
+Parâmetros de query:
+- `skip` (int): Paginação (padrão: 0)
+- `limit` (int): Itens por página (padrão: 50, máx: 100)
+- `tabela` (string): Filtrar por nome da tabela
+- `user_email` (string): Filtrar por email do usuário
+
+### Formato das Respostas
+
+**Sucesso (entidade única):**
+```json
+{
+  "status": "success",
+  "data": { ... }
+}
+```
+
+**Sucesso (lista paginada):**
+```json
+{
+  "status": "success",
+  "data": [ ... ],
+  "total": 42,
+  "skip": 0,
+  "limit": 50
+}
+```
+
+**Erro:**
+```json
+{
+  "status": "error",
+  "error": "Mensagem de erro"
+}
+```
+
+**Documentação Interativa:**
+
+Acesse [http://localhost:8000/docs](http://localhost:8000/docs) para explorar todos os endpoints via Swagger UI.
+
 ### Produção
 
 Deploy via `./deploy.sh` configura automaticamente:
