@@ -267,7 +267,52 @@ A autenticação é feita via **Azure AD (Entra ID)** com fluxo OAuth2 Authoriza
 
 ---
 
-## 📡 Endpoints da API
+## � Migração de Dados
+
+Na primeira vez que você acessar o ConstruBot após a atualização para a versão com persistência em nuvem, uma modal será exibida automaticamente oferecendo a migração dos dados armazenados localmente para o Azure Table Storage.
+
+### Como Funciona
+
+A migração:
+- Detecta dados em `localStorage` (chaves `construbot_v2`, `construbot_engineer`)
+- Cria seu perfil de cliente na nuvem via POST `/api/clientes`
+- Migra todos os orçamentos salvos localmente via POST `/api/orcamentos`
+- Limpa o `localStorage` após sucesso
+- Exibe relatório de sucesso/erros
+
+### Opções de Migração
+
+1. **Migrar agora**: executa a migração imediatamente e recarrega a página
+2. **Pular**: mantém os dados em `localStorage` até o próximo login (flag `construbot_migrated=skipped`)
+
+### Forçar Nova Migração
+
+Se você pulou a migração e deseja executá-la novamente, limpe o flag no console do navegador:
+
+```javascript
+localStorage.removeItem('construbot_migrated')
+```
+
+Depois recarregue a página e a modal de migração aparecerá novamente.
+
+### Resetar Migração (Desenvolvimento)
+
+Para testar a migração múltiplas vezes durante desenvolvimento:
+
+```javascript
+localStorage.setItem('construbot_v2', JSON.stringify({
+  cliente: { nome: 'Teste', telefone: '11999999999', email: 'teste@example.com' },
+  orcamentos: [{ id: '1', nome: 'Obra Teste', uf: 'SP', itens: [] }],
+  orcamentoAtivo: null
+}))
+localStorage.removeItem('construbot_migrated')
+```
+
+Recarregue a página para ver a modal de migração.
+
+---
+
+## �📡 Endpoints da API
 
 A API REST expõe endpoints CRUD para todas as entidades, com autenticação JWT obrigatória e controle de acesso baseado em roles.
 
