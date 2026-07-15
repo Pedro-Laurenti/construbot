@@ -185,7 +185,47 @@ else
 fi
 ok "Frontend app pronto: https://${FRONTEND_APP}.azurewebsites.net"
 
-# ── 9. Restart para aplicar nova imagem ──────────────────────────
+# ── 9. Provisionar Azure Function para watcher SINAPI ────────────
+log "Provisionando Azure Function App para watcher SINAPI..."
+FUNCTION_APP="construbot-sinapi-watcher"
+FUNCTION_STORAGE="cbwatcherstorage${RANDOM}"
+
+if ! az storage account show --name "$FUNCTION_STORAGE" --resource-group "$RG" &>/dev/null; then
+  az storage account create \
+    --name "$FUNCTION_STORAGE" \
+    --resource-group "$RG" \
+    --location "$LOCATION" \
+    --sku Standard_LRS \
+    --output none
+fi
+
+if ! az functionapp show --name "$FUNCTION_APP" --resource-group "$RG" &>/dev/null; then
+  az functionapp create \
+    --name "$FUNCTION_APP" \
+    --resource-group "$RG" \
+    --storage-account "$FUNCTION_STORAGE" \
+    --consumption-plan-location "$LOCATION" \
+    --runtime python \
+    --runtime-version 3.11 \
+    --functions-version 4 \
+    --os-type Linux \
+    --output none
+fi
+
+az functionapp config appsettings set \
+  --name "$FUNCTION_APP" \
+  --resource-group "$RG" \
+  --settings \
+    CM_SINAPI_WATCHER_URL="https://www.caixa.gov.br/site/paginas/downloads.aspx" \
+    CM_SINAPI_WATCHER_ENABLED="true" \
+    CM_SINAPI_ADMIN_EMAILS="admin@example.com" \
+    CM_STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT" \
+    CM_STORAGE_ACCOUNT_URL="$STORAGE_URL" \
+  --output none
+
+ok "Function App provisionada: $FUNCTION_APP"
+
+# ── 10. Restart para aplicar nova imagem ──────────────────────────
 log "Reiniciando apps para aplicar novas imagens..."
 az webapp restart --name "$BACKEND_APP"  --resource-group "$RG" --output none
 az webapp restart --name "$FRONTEND_APP" --resource-group "$RG" --output none

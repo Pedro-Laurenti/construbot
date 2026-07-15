@@ -253,3 +253,17 @@ export async function updateGruposEncargos(data: Partial<GruposEncargos>): Promi
   const result = await response.json()
   return result.data
 }
+
+export async function revalidarOrcamento(orcamentoId: string): Promise<{ sinapiRef: string; orcamentoId: string }> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/sinapi/revalidar-orcamento/${orcamentoId}`, {
+    method: 'POST',
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error ?? 'Erro ao revalidar orçamento')
+  }
+  
+  const result = await response.json()
+  return result
+}

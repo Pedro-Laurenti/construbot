@@ -1,8 +1,10 @@
 'use client'
 
-import { MdSave, MdArrowBack, MdApartment } from 'react-icons/md'
+import { useState } from 'react'
+import { MdSave, MdArrowBack, MdApartment, MdWarning } from 'react-icons/md'
 import { formatCurrency } from '@/lib/formatters'
 import ItemResultadoCard from './ItemResultadoCard'
+import { revalidarOrcamento } from '@/lib/api'
 import type { Orcamento } from '@/types'
 
 interface Props {
@@ -22,7 +24,24 @@ function StatRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function ResultadoOrcamento({ orcamento, onSave, onBack, isSaved }: Props) {
+  const [revalidando, setRevalidando] = useState(false)
   const t = orcamento.totais
+
+  async function handleRevalidarOrcamento() {
+    if (!orcamento.id) return
+    
+    setRevalidando(true)
+    try {
+      await revalidarOrcamento(orcamento.id)
+      alert('Orçamento recalculado com sucesso. A página será recarregada.')
+      window.location.reload()
+    } catch (error) {
+      alert('Erro ao recalcular orçamento')
+      console.error(error)
+    } finally {
+      setRevalidando(false)
+    }
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -35,6 +54,23 @@ export default function ResultadoOrcamento({ orcamento, onSave, onBack, isSaved 
           <p className="text-sm text-base-content/50">UF: {orcamento.uf} · {orcamento.itens.length} serviço(s)</p>
         </div>
       </div>
+
+      {orcamento.sinapiAtualizacaoDisponivel && (
+        <div className="alert alert-warning mb-6">
+          <MdWarning className="w-6 h-6" />
+          <div className="flex-1">
+            <h3 className="font-semibold">Nova versão SINAPI disponível</h3>
+            <p className="text-sm">Deseja recalcular o orçamento com os dados atualizados?</p>
+          </div>
+          <button 
+            className="btn btn-sm btn-primary" 
+            onClick={handleRevalidarOrcamento}
+            disabled={revalidando}
+          >
+            {revalidando ? 'Recalculando...' : 'Recalcular'}
+          </button>
+        </div>
+      )}
 
       {t && (
         <div className="card bg-primary/10 border border-primary/30 mb-6">

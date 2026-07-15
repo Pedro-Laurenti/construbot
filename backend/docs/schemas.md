@@ -112,6 +112,8 @@ Toda entidade mutável deve ter:
 | `faixaCotacaoJson` | string | FaixaCotacao? | Não | JSON com faixa de preço estimada |
 | `logEtapasJson` | string | Array<{etapa, concluidaEm}>? | Não | JSON do log de progresso |
 | `motivoReabertura` | string | string? | Não | Motivo se orçamento foi reaberto após entregue |
+| `sinapiRef` | string | string? | Não | Versão SINAPI usada no cálculo (ex: `2026-04`) |
+| `sinapiAtualizacaoDisponivel` | bool | boolean? | Não | Flag indicando que nova versão SINAPI está disponível para revalidação |
 | `createdAt` | string | - | Sim | ISO 8601 UTC |
 | `updatedAt` | string | - | Sim | ISO 8601 UTC |
 | `createdBy` | string | - | Não | Email |
@@ -548,6 +550,46 @@ Se 27 colunas for problemático:
 ### Retenção de Dados
 
 - Considerar política de retenção (ex: manter 12 meses, arquivar ou deletar dados mais antigos)
+
+---
+
+## Tabela: SINAPIPublicacao
+
+**Descrição:** Histórico de versões SINAPI detectadas e ingeridas pelo watcher automatizado.
+
+**PartitionKey:** `{tenantId}#SINAPI_PUB`  
+**RowKey:** `{sinapiRef}` (ex: `2026-04`)
+
+### Colunas
+
+| Coluna | Tipo Azure | Tipo TS Original | Obrigatório | Notas |
+|--------|-----------|-----------------|-------------|-------|
+| `PartitionKey` | string | - | Sim | `{tenantId}#SINAPI_PUB` (ex: `default#SINAPI_PUB`) |
+| `RowKey` | string | - | Sim | `{sinapiRef}` (ex: `2026-04`) |
+| `sinapiRef` | string | string | Sim | Referência mensal (duplicado para facilitar queries) |
+| `dataPublicacao` | string | string? | Não | ISO 8601 UTC da publicação oficial pela Caixa |
+| `dataDeteccao` | string | string | Sim | ISO 8601 UTC da detecção pelo watcher |
+| `dataIngestao` | string | string? | Não | ISO 8601 UTC da conclusão da ingestão |
+| `status` | string | string | Sim | Status: `DETECTADA`, `BAIXANDO`, `PROCESSANDO`, `INGERIDA`, `ERRO` |
+| `urlISE` | string | string? | Não | URL do arquivo ISE baixado |
+| `urlComposicoes` | string | string? | Não | URL do arquivo de composições baixado |
+| `checksumISE` | string | string? | Não | SHA256 do arquivo ISE |
+| `checksumComposicoes` | string | string? | Não | SHA256 do arquivo de composições |
+| `logJson` | string | object? | Não | JSON com log de execução (erros, warnings, total de registros) |
+| `createdAt` | string | - | Sim | ISO 8601 UTC |
+| `updatedAt` | string | - | Sim | ISO 8601 UTC |
+
+### Índices Secundários (Query Patterns)
+
+- Listar todas as publicações: `filter = "PartitionKey eq '{tenant}#SINAPI_PUB'"`
+- Buscar publicação específica: `filter = "PartitionKey eq '{tenant}#SINAPI_PUB' and sinapiRef eq '2026-04'"`
+- Filtrar por status: `filter = "PartitionKey eq '{tenant}#SINAPI_PUB' and status eq 'INGERIDA'"`
+
+### Validações
+
+- `sinapiRef` deve seguir formato `AAAA-MM`
+- `status` deve estar na lista permitida
+- `checksumISE` e `checksumComposicoes` devem ser SHA256 válidos (64 caracteres hexadecimais)
 - Implementar job periódico (Azure Function) para limpeza de partitions antigas (etapa 09b ou 11)
 
 ---

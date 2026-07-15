@@ -101,3 +101,76 @@ async def obter_composicao(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sinapi/publicacoes")
+async def listar_publicacoes(user: Dict[str, Any] = Depends(get_user_from_token)) -> Dict[str, Any]:
+    from app.repositories.sinapi_publicacao_repository import SINAPIPublicacaoRepository
+    
+    try:
+        repo = SINAPIPublicacaoRepository()
+        publicacoes = repo.list_all_publicacoes()
+        return {
+            "publicacoes": publicacoes,
+            "total": len(publicacoes)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sinapi/publicacao/{sinapiRef}")
+async def obter_publicacao(
+    sinapiRef: str,
+    user: Dict[str, Any] = Depends(get_user_from_token)
+) -> Dict[str, Any]:
+    from app.repositories.sinapi_publicacao_repository import SINAPIPublicacaoRepository
+    
+    try:
+        repo = SINAPIPublicacaoRepository()
+        publicacao = repo.get_by_sinapi_ref(sinapiRef)
+        if not publicacao:
+            raise HTTPException(status_code=404, detail="Publicação não encontrada")
+        return publicacao
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/sinapi/revalidar-orcamento/{orcamento_id}")
+async def revalidar_orcamento(
+    orcamento_id: str,
+    user: Dict[str, Any] = Depends(get_user_from_token)
+) -> Dict[str, Any]:
+    from app.repositories.orcamento_repository import OrcamentoRepository
+    from app.utils.table_client import get_table_client
+    from app.utils.helpers import get_current_timestamp
+    
+    try:
+        repo_orc = OrcamentoRepository(get_table_client("Orcamento"))
+        
+        entities = repo_orc.table_client.query_entities(f"RowKey eq '{orcamento_id}'")
+        entity_list = list(entities)
+        
+        if not entity_list:
+            raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+        
+        orcamento = entity_list[0]
+        
+        if orcamento.get("clienteId") != user.get("sub") and user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Sem permissão para acessar este orçamento")
+        
+        versao_ativa = sinapi_service.get_versao_ativa()
+        
+        orcamento["sinapiRef"] = versao_ativa
+        orcamento["sinapiAtualizacaoDisponivel"] = False
+        orcamento["updatedAt"] = get_current_timestamp()
+        
+        repo_orc.table_client.update_entity(orcamento, mode="merge")
+        
+        return {
+            "mensagem": "Orçamento revalidado com sucesso",
+            "sinapiRef": versao_ativa,
+            "orcamentoId": orcamento_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

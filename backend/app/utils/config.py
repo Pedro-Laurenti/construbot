@@ -82,3 +82,7 @@ CM_AZURE_AD_CLIENT_ID = os.getenv("CM_AZURE_AD_CLIENT_ID", "")
 CM_AZURE_AD_AUDIENCE = os.getenv("CM_AZURE_AD_AUDIENCE", "")
 CM_JWT_ALGORITHM = "RS256"
 CM_JWT_ISSUER = f"https://login.microsoftonline.com/{CM_AZURE_AD_TENANT_ID}/v2.0"
+
+CM_SINAPI_WATCHER_URL = os.getenv("CM_SINAPI_WATCHER_URL", "https://www.caixa.gov.br/site/paginas/downloads.aspx")
+CM_SINAPI_WATCHER_ENABLED = os.getenv("CM_SINAPI_WATCHER_ENABLED", "true")
+CM_SINAPI_ADMIN_EMAILS = os.getenv("CM_SINAPI_ADMIN_EMAILS", "")
